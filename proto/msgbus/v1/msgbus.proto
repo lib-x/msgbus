@@ -68,10 +68,29 @@ message TopicHead {
   uint64 head_id = 3;
 }
 
+message PeerSyncState {
+  string peer = 1;
+  string topic = 2;
+  NodeId origin = 3;
+  uint64 local_head = 4;
+  uint64 remote_head = 5;
+  uint64 last_synced_head = 6;
+  uint64 last_attempt_at_ms = 7;
+  uint64 last_success_at_ms = 8;
+  uint32 consecutive_failures = 9;
+  string last_error = 10;
+}
+
 message ListHeadsRequest {}
 
 message ListHeadsResponse {
   repeated TopicHead heads = 1;
+}
+
+message ListPeerSyncStatesRequest {}
+
+message ListPeerSyncStatesResponse {
+  repeated PeerSyncState states = 1;
 }
 
 message DeleteRangeRequest {
@@ -144,16 +163,27 @@ message HealthResponse {
   NodeId node = 2;
 }
 
+message ReadyRequest {}
+
+message ReadyResponse {
+  bool ready = 1;
+  string status = 2;
+  string error = 3;
+  NodeId node = 4;
+}
+
 service MsgbusService {
   rpc Publish(PublishRequest) returns (PublishResponse);
   rpc Fetch(FetchRequest) returns (stream FetchResponse);
   rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
   rpc GetHead(GetHeadRequest) returns (GetHeadResponse);
   rpc ListHeads(ListHeadsRequest) returns (ListHeadsResponse);
+  rpc ListPeerSyncStates(ListPeerSyncStatesRequest) returns (ListPeerSyncStatesResponse);
   rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse);
   rpc EnqueueFifo(EnqueueFifoRequest) returns (EnqueueFifoResponse);
   rpc PeekFifo(PeekFifoRequest) returns (PeekFifoResponse);
   rpc AckFifo(AckFifoRequest) returns (AckFifoResponse);
   rpc RejectFifo(RejectFifoRequest) returns (RejectFifoResponse);
   rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }

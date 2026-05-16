@@ -19,17 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MsgbusService_Publish_FullMethodName     = "/msgbus.v1.MsgbusService/Publish"
-	MsgbusService_Fetch_FullMethodName       = "/msgbus.v1.MsgbusService/Fetch"
-	MsgbusService_Subscribe_FullMethodName   = "/msgbus.v1.MsgbusService/Subscribe"
-	MsgbusService_GetHead_FullMethodName     = "/msgbus.v1.MsgbusService/GetHead"
-	MsgbusService_ListHeads_FullMethodName   = "/msgbus.v1.MsgbusService/ListHeads"
-	MsgbusService_DeleteRange_FullMethodName = "/msgbus.v1.MsgbusService/DeleteRange"
-	MsgbusService_EnqueueFifo_FullMethodName = "/msgbus.v1.MsgbusService/EnqueueFifo"
-	MsgbusService_PeekFifo_FullMethodName    = "/msgbus.v1.MsgbusService/PeekFifo"
-	MsgbusService_AckFifo_FullMethodName     = "/msgbus.v1.MsgbusService/AckFifo"
-	MsgbusService_RejectFifo_FullMethodName  = "/msgbus.v1.MsgbusService/RejectFifo"
-	MsgbusService_Health_FullMethodName      = "/msgbus.v1.MsgbusService/Health"
+	MsgbusService_Publish_FullMethodName            = "/msgbus.v1.MsgbusService/Publish"
+	MsgbusService_Fetch_FullMethodName              = "/msgbus.v1.MsgbusService/Fetch"
+	MsgbusService_Subscribe_FullMethodName          = "/msgbus.v1.MsgbusService/Subscribe"
+	MsgbusService_GetHead_FullMethodName            = "/msgbus.v1.MsgbusService/GetHead"
+	MsgbusService_ListHeads_FullMethodName          = "/msgbus.v1.MsgbusService/ListHeads"
+	MsgbusService_ListPeerSyncStates_FullMethodName = "/msgbus.v1.MsgbusService/ListPeerSyncStates"
+	MsgbusService_DeleteRange_FullMethodName        = "/msgbus.v1.MsgbusService/DeleteRange"
+	MsgbusService_EnqueueFifo_FullMethodName        = "/msgbus.v1.MsgbusService/EnqueueFifo"
+	MsgbusService_PeekFifo_FullMethodName           = "/msgbus.v1.MsgbusService/PeekFifo"
+	MsgbusService_AckFifo_FullMethodName            = "/msgbus.v1.MsgbusService/AckFifo"
+	MsgbusService_RejectFifo_FullMethodName         = "/msgbus.v1.MsgbusService/RejectFifo"
+	MsgbusService_Health_FullMethodName             = "/msgbus.v1.MsgbusService/Health"
+	MsgbusService_Ready_FullMethodName              = "/msgbus.v1.MsgbusService/Ready"
 )
 
 // MsgbusServiceClient is the client API for MsgbusService service.
@@ -41,12 +43,14 @@ type MsgbusServiceClient interface {
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SubscribeResponse], error)
 	GetHead(ctx context.Context, in *GetHeadRequest, opts ...grpc.CallOption) (*GetHeadResponse, error)
 	ListHeads(ctx context.Context, in *ListHeadsRequest, opts ...grpc.CallOption) (*ListHeadsResponse, error)
+	ListPeerSyncStates(ctx context.Context, in *ListPeerSyncStatesRequest, opts ...grpc.CallOption) (*ListPeerSyncStatesResponse, error)
 	DeleteRange(ctx context.Context, in *DeleteRangeRequest, opts ...grpc.CallOption) (*DeleteRangeResponse, error)
 	EnqueueFifo(ctx context.Context, in *EnqueueFifoRequest, opts ...grpc.CallOption) (*EnqueueFifoResponse, error)
 	PeekFifo(ctx context.Context, in *PeekFifoRequest, opts ...grpc.CallOption) (*PeekFifoResponse, error)
 	AckFifo(ctx context.Context, in *AckFifoRequest, opts ...grpc.CallOption) (*AckFifoResponse, error)
 	RejectFifo(ctx context.Context, in *RejectFifoRequest, opts ...grpc.CallOption) (*RejectFifoResponse, error)
 	Health(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*HealthResponse, error)
+	Ready(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
 }
 
 type msgbusServiceClient struct {
@@ -125,6 +129,16 @@ func (c *msgbusServiceClient) ListHeads(ctx context.Context, in *ListHeadsReques
 	return out, nil
 }
 
+func (c *msgbusServiceClient) ListPeerSyncStates(ctx context.Context, in *ListPeerSyncStatesRequest, opts ...grpc.CallOption) (*ListPeerSyncStatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPeerSyncStatesResponse)
+	err := c.cc.Invoke(ctx, MsgbusService_ListPeerSyncStates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgbusServiceClient) DeleteRange(ctx context.Context, in *DeleteRangeRequest, opts ...grpc.CallOption) (*DeleteRangeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteRangeResponse)
@@ -185,6 +199,16 @@ func (c *msgbusServiceClient) Health(ctx context.Context, in *HealthRequest, opt
 	return out, nil
 }
 
+func (c *msgbusServiceClient) Ready(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReadyResponse)
+	err := c.cc.Invoke(ctx, MsgbusService_Ready_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgbusServiceServer is the server API for MsgbusService service.
 // All implementations should embed UnimplementedMsgbusServiceServer
 // for forward compatibility.
@@ -194,12 +218,14 @@ type MsgbusServiceServer interface {
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[SubscribeResponse]) error
 	GetHead(context.Context, *GetHeadRequest) (*GetHeadResponse, error)
 	ListHeads(context.Context, *ListHeadsRequest) (*ListHeadsResponse, error)
+	ListPeerSyncStates(context.Context, *ListPeerSyncStatesRequest) (*ListPeerSyncStatesResponse, error)
 	DeleteRange(context.Context, *DeleteRangeRequest) (*DeleteRangeResponse, error)
 	EnqueueFifo(context.Context, *EnqueueFifoRequest) (*EnqueueFifoResponse, error)
 	PeekFifo(context.Context, *PeekFifoRequest) (*PeekFifoResponse, error)
 	AckFifo(context.Context, *AckFifoRequest) (*AckFifoResponse, error)
 	RejectFifo(context.Context, *RejectFifoRequest) (*RejectFifoResponse, error)
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
+	Ready(context.Context, *ReadyRequest) (*ReadyResponse, error)
 }
 
 // UnimplementedMsgbusServiceServer should be embedded to have
@@ -224,6 +250,9 @@ func (UnimplementedMsgbusServiceServer) GetHead(context.Context, *GetHeadRequest
 func (UnimplementedMsgbusServiceServer) ListHeads(context.Context, *ListHeadsRequest) (*ListHeadsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListHeads not implemented")
 }
+func (UnimplementedMsgbusServiceServer) ListPeerSyncStates(context.Context, *ListPeerSyncStatesRequest) (*ListPeerSyncStatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPeerSyncStates not implemented")
+}
 func (UnimplementedMsgbusServiceServer) DeleteRange(context.Context, *DeleteRangeRequest) (*DeleteRangeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRange not implemented")
 }
@@ -241,6 +270,9 @@ func (UnimplementedMsgbusServiceServer) RejectFifo(context.Context, *RejectFifoR
 }
 func (UnimplementedMsgbusServiceServer) Health(context.Context, *HealthRequest) (*HealthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Health not implemented")
+}
+func (UnimplementedMsgbusServiceServer) Ready(context.Context, *ReadyRequest) (*ReadyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Ready not implemented")
 }
 func (UnimplementedMsgbusServiceServer) testEmbeddedByValue() {}
 
@@ -334,6 +366,24 @@ func _MsgbusService_ListHeads_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgbusServiceServer).ListHeads(ctx, req.(*ListHeadsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MsgbusService_ListPeerSyncStates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPeerSyncStatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgbusServiceServer).ListPeerSyncStates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MsgbusService_ListPeerSyncStates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgbusServiceServer).ListPeerSyncStates(ctx, req.(*ListPeerSyncStatesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -446,6 +496,24 @@ func _MsgbusService_Health_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MsgbusService_Ready_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgbusServiceServer).Ready(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MsgbusService_Ready_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgbusServiceServer).Ready(ctx, req.(*ReadyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MsgbusService_ServiceDesc is the grpc.ServiceDesc for MsgbusService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -464,6 +532,10 @@ var MsgbusService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListHeads",
 			Handler:    _MsgbusService_ListHeads_Handler,
+		},
+		{
+			MethodName: "ListPeerSyncStates",
+			Handler:    _MsgbusService_ListPeerSyncStates_Handler,
 		},
 		{
 			MethodName: "DeleteRange",
@@ -488,6 +560,10 @@ var MsgbusService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Health",
 			Handler:    _MsgbusService_Health_Handler,
+		},
+		{
+			MethodName: "Ready",
+			Handler:    _MsgbusService_Ready_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

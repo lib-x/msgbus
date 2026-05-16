@@ -1,0 +1,7 @@
+target/
+.git/
+*.redb
+*.sqlite
+node-*.redb
+msgbus.redb
+msgbus.sqlite

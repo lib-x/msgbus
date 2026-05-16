@@ -13,7 +13,7 @@ resolver = "3"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
-repository = "https://example.invalid/msgbus"
+repository = "https://github.com/lib-x/msgbus"
 
 [workspace.dependencies]
 async-trait = "0.1.89"
@@ -28,8 +28,8 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 thiserror = "2.0.17"
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
-tokio-stream = { version = "0.1.17", features = ["sync"] }
-tonic = "0.14.6"
+tokio-stream = { version = "0.1.17", features = ["net", "sync"] }
+tonic = { version = "0.14.6", features = ["tls-native-roots", "tls-ring"] }
 tonic-build = "0.14.6"
 tonic-prost = "0.14.6"
 tonic-prost-build = "0.14.6"

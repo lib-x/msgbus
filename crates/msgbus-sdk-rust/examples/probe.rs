@@ -57,6 +57,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
         }
+        "list-sync" => {
+            for state in client.list_peer_sync_states().await? {
+                let origin = state
+                    .origin
+                    .map(|origin| {
+                        format!(
+                            "{}/{}/{}",
+                            origin.tenant_id, origin.bl_name, origin.device_id
+                        )
+                    })
+                    .unwrap_or_else(|| "-".to_string());
+                let last_error = if state.last_error.is_empty() {
+                    "-"
+                } else {
+                    state.last_error.as_str()
+                };
+                println!(
+                    "sync peer={} topic={} origin={} local_head={} remote_head={} last_synced_head={} failures={} last_error={}",
+                    state.peer,
+                    state.topic,
+                    origin,
+                    state.local_head,
+                    state.remote_head,
+                    state.last_synced_head,
+                    state.consecutive_failures,
+                    last_error
+                );
+            }
+        }
         other => {
             return Err(format!("unsupported MSGBUS_ACTION: {other}").into());
         }

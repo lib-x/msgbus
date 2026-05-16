@@ -50,6 +50,25 @@ impl NodeId {
         format!("{}/{}/{}", self.tenant_id, self.bl_name, self.device_id)
     }
 
+    pub fn from_key(value: &str) -> Result<Self> {
+        let mut parts = value.split('/');
+        let tenant_id = parts
+            .next()
+            .ok_or_else(|| MsgbusError::InvalidArgument("node key is missing tenant_id".into()))?;
+        let bl_name = parts
+            .next()
+            .ok_or_else(|| MsgbusError::InvalidArgument("node key is missing bl_name".into()))?;
+        let device_id = parts
+            .next()
+            .ok_or_else(|| MsgbusError::InvalidArgument("node key is missing device_id".into()))?;
+        if parts.next().is_some() {
+            return Err(MsgbusError::InvalidArgument(
+                "node key must have tenant_id/bl_name/device_id".into(),
+            ));
+        }
+        Self::new(tenant_id, bl_name, device_id)
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_part("tenant_id", &self.tenant_id)?;
         validate_part("bl_name", &self.bl_name)?;
@@ -157,6 +176,20 @@ pub struct TopicHead {
     pub head_id: HeadId,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PeerSyncState {
+    pub peer: String,
+    pub topic: Option<Topic>,
+    pub origin: Option<NodeId>,
+    pub local_head: HeadId,
+    pub remote_head: HeadId,
+    pub last_synced_head: HeadId,
+    pub last_attempt_at_ms: u64,
+    pub last_success_at_ms: u64,
+    pub consecutive_failures: u32,
+    pub last_error: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReplicateResult {
     Inserted,
@@ -261,6 +294,16 @@ pub trait MsgbusStore: Send + Sync + 'static {
         to: HeadId,
     ) -> Result<u64>;
 
+    async fn tombstone_range_with_marker(
+        &self,
+        topic: &Topic,
+        origin: &NodeId,
+        from: HeadId,
+        to: HeadId,
+        marker_topic: &Topic,
+        marker_origin: &NodeId,
+    ) -> Result<(u64, StoredMessage)>;
+
     async fn enqueue_fifo(&self, message: NewFifoMessage) -> Result<StoredFifoMessage>;
 
     async fn peek_fifo(&self, queue: &QueueName) -> Result<Option<StoredFifoMessage>>;
@@ -268,6 +311,10 @@ pub trait MsgbusStore: Send + Sync + 'static {
     async fn ack_fifo(&self, queue: &QueueName, message_id: &MessageId) -> Result<bool>;
 
     async fn reject_fifo(&self, queue: &QueueName, message_id: &MessageId) -> Result<bool>;
+
+    async fn record_peer_sync_state(&self, state: PeerSyncState) -> Result<()>;
+
+    async fn list_peer_sync_states(&self) -> Result<Vec<PeerSyncState>>;
 }
 
 pub fn now_ms() -> u64 {
@@ -286,4 +333,23 @@ fn validate_part(name: &str, value: &str) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_node_key() {
+        let node = NodeId::from_key("tenant/bl/device").expect("node key");
+        assert_eq!(node.tenant_id, "tenant");
+        assert_eq!(node.bl_name, "bl");
+        assert_eq!(node.device_id, "device");
+    }
+
+    #[test]
+    fn rejects_malformed_node_key() {
+        assert!(NodeId::from_key("tenant/bl").is_err());
+        assert!(NodeId::from_key("tenant/bl/device/extra").is_err());
+    }
 }

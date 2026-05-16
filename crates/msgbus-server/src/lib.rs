@@ -1,13 +1,15 @@
 use futures_core::Stream;
 use msgbus_core::{
     FetchQuery, HeadId, MessageId, MsgbusError, MsgbusStore, NewFifoMessage, NewMessage, NodeId,
-    QueueName, StoredFifoMessage, StoredMessage, TombstoneRange, Topic, TopicHead, now_ms,
+    PeerSyncState as CorePeerSyncState, QueueName, StoredFifoMessage, StoredMessage,
+    TombstoneRange, Topic, TopicHead,
 };
 use msgbus_proto::msgbus::v1::{
     AckFifoRequest, AckFifoResponse, DeleteRangeRequest, DeleteRangeResponse, EnqueueFifoRequest,
     EnqueueFifoResponse, FetchRequest, FetchResponse, FifoMessage, GetHeadRequest, GetHeadResponse,
-    HealthRequest, HealthResponse, ListHeadsRequest, ListHeadsResponse, MessageEnvelope,
-    PeekFifoRequest, PeekFifoResponse, PublishRequest, PublishResponse, RejectFifoRequest,
+    HealthRequest, HealthResponse, ListHeadsRequest, ListHeadsResponse, ListPeerSyncStatesRequest,
+    ListPeerSyncStatesResponse, MessageEnvelope, PeekFifoRequest, PeekFifoResponse, PeerSyncState,
+    PublishRequest, PublishResponse, ReadyRequest, ReadyResponse, RejectFifoRequest,
     RejectFifoResponse, SubscribeRequest, SubscribeResponse,
     msgbus_service_server::{MsgbusService, MsgbusServiceServer},
 };
@@ -68,6 +70,20 @@ where
             None => Ok(self.node.clone()),
         }
     }
+
+    fn owned_origin(
+        &self,
+        origin: Option<msgbus_proto::msgbus::v1::NodeId>,
+    ) -> Result<NodeId, Status> {
+        let origin = self.request_origin(origin)?;
+        if origin == self.node {
+            Ok(origin)
+        } else {
+            Err(Status::permission_denied(
+                "writes must use the local daemon origin",
+            ))
+        }
+    }
 }
 
 type RpcStream<T> = Pin<Box<dyn Stream<Item = Result<T, Status>> + Send + 'static>>;
@@ -86,7 +102,8 @@ where
     ) -> Result<Response<PublishResponse>, Status> {
         let request = request.into_inner();
         let topic = Topic::new(request.topic).map_err(status_from_error)?;
-        let origin = self.request_origin(request.origin)?;
+        ensure_application_topic(&topic)?;
+        let origin = self.owned_origin(request.origin)?;
         let message = NewMessage::new(
             topic,
             origin,
@@ -143,6 +160,7 @@ where
             request.replay_limit
         };
 
+        let live_rx = self.published.subscribe();
         let replay = self
             .store
             .fetch_messages(FetchQuery {
@@ -154,7 +172,7 @@ where
             .await
             .map_err(status_from_error)?;
 
-        let mut live = BroadcastStream::new(self.published.subscribe());
+        let mut live = BroadcastStream::new(live_rx);
         let (tx, rx) = mpsc::channel(128);
         tokio::spawn(async move {
             let mut last_sent = from_head_id.0.saturating_sub(1);
@@ -235,37 +253,35 @@ where
         Ok(Response::new(ListHeadsResponse { heads }))
     }
 
+    async fn list_peer_sync_states(
+        &self,
+        _request: Request<ListPeerSyncStatesRequest>,
+    ) -> Result<Response<ListPeerSyncStatesResponse>, Status> {
+        let states = self
+            .store
+            .list_peer_sync_states()
+            .await
+            .map_err(status_from_error)?
+            .into_iter()
+            .map(proto_peer_sync_state)
+            .collect();
+        Ok(Response::new(ListPeerSyncStatesResponse { states }))
+    }
+
     async fn delete_range(
         &self,
         request: Request<DeleteRangeRequest>,
     ) -> Result<Response<DeleteRangeResponse>, Status> {
         let request = request.into_inner();
         let topic = Topic::new(request.topic).map_err(status_from_error)?;
-        let origin = self.request_origin(request.origin)?;
+        ensure_application_topic(&topic)?;
+        let origin = self.owned_origin(request.origin)?;
         let from = HeadId(request.from_head_id);
         let to = HeadId(request.to_head_id);
-        let deleted_count = self
+        let delete_topic = Topic::new(DELETE_TOPIC).map_err(status_from_error)?;
+        let (deleted_count, control) = self
             .store
-            .tombstone_range(&topic, &origin, from, to)
-            .await
-            .map_err(status_from_error)?;
-        let tombstone = TombstoneRange {
-            topic,
-            origin,
-            from_head_id: from,
-            to_head_id: to,
-            created_at_ms: now_ms(),
-        };
-        let payload = serde_json::to_vec(&tombstone)
-            .map_err(|err| Status::internal(format!("failed to encode tombstone: {err}")))?;
-        let control = self
-            .store
-            .append_message(NewMessage::new(
-                Topic::new(DELETE_TOPIC).map_err(status_from_error)?,
-                self.node.clone(),
-                payload,
-                BTreeMap::new(),
-            ))
+            .tombstone_range_with_marker(&topic, &origin, from, to, &delete_topic, &self.node)
             .await
             .map_err(status_from_error)?;
         let _ = self.published.send(control);
@@ -279,7 +295,8 @@ where
         let request = request.into_inner();
         let queue = QueueName::new(request.queue).map_err(status_from_error)?;
         let topic = Topic::new(request.topic).map_err(status_from_error)?;
-        let source = self.request_origin(request.source)?;
+        ensure_application_topic(&topic)?;
+        let source = self.owned_origin(request.source)?;
         let target = request
             .target
             .map(core_node)
@@ -353,6 +370,68 @@ where
             node: Some(proto_node(self.node.clone())),
         }))
     }
+
+    async fn ready(
+        &self,
+        _request: Request<ReadyRequest>,
+    ) -> Result<Response<ReadyResponse>, Status> {
+        match self.store.list_heads().await {
+            Ok(_) => Ok(Response::new(ReadyResponse {
+                ready: true,
+                status: "READY".to_string(),
+                error: String::new(),
+                node: Some(proto_node(self.node.clone())),
+            })),
+            Err(err) => Ok(Response::new(ReadyResponse {
+                ready: false,
+                status: "NOT_READY".to_string(),
+                error: err.to_string(),
+                node: Some(proto_node(self.node.clone())),
+            })),
+        }
+    }
+}
+
+pub async fn replay_control_messages<S>(store: &S) -> Result<(), Status>
+where
+    S: MsgbusStore,
+{
+    let heads = store.list_heads().await.map_err(status_from_error)?;
+    for head in heads
+        .into_iter()
+        .filter(|head| head.topic.as_str() == DELETE_TOPIC)
+    {
+        let mut from_head_id = 1_u64;
+        while from_head_id <= head.head_id.0 {
+            let messages = store
+                .fetch_messages(FetchQuery {
+                    topic: head.topic.clone(),
+                    origin: head.origin.clone(),
+                    from_head_id: HeadId(from_head_id),
+                    limit: 1_000,
+                })
+                .await
+                .map_err(status_from_error)?;
+            if messages.is_empty() {
+                break;
+            }
+            for message in messages {
+                from_head_id = message.head_id.0.saturating_add(1);
+                apply_control_message(store, &message).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn ensure_application_topic(topic: &Topic) -> Result<(), Status> {
+    if topic.as_str() == DELETE_TOPIC {
+        Err(Status::permission_denied(
+            "$msgbus.delete is reserved for delete markers",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn fifo_ack_parts(request: AckFifoRequest) -> Result<(QueueName, MessageId), Status> {
@@ -369,7 +448,7 @@ fn reject_fifo_parts(request: RejectFifoRequest) -> Result<(QueueName, MessageId
     ))
 }
 
-fn core_node(value: msgbus_proto::msgbus::v1::NodeId) -> Result<NodeId, Status> {
+pub(crate) fn core_node(value: msgbus_proto::msgbus::v1::NodeId) -> Result<NodeId, Status> {
     if value.tenant_id.is_empty() && value.bl_name.is_empty() && value.device_id.is_empty() {
         return Ok(NodeId {
             tenant_id: String::new(),
@@ -432,6 +511,21 @@ fn proto_topic_head(value: TopicHead) -> msgbus_proto::msgbus::v1::TopicHead {
     }
 }
 
+fn proto_peer_sync_state(value: CorePeerSyncState) -> PeerSyncState {
+    PeerSyncState {
+        peer: value.peer,
+        topic: value.topic.map_or_else(String::new, Topic::into_string),
+        origin: value.origin.map(proto_node),
+        local_head: value.local_head.0,
+        remote_head: value.remote_head.0,
+        last_synced_head: value.last_synced_head.0,
+        last_attempt_at_ms: value.last_attempt_at_ms,
+        last_success_at_ms: value.last_success_at_ms,
+        consecutive_failures: value.consecutive_failures,
+        last_error: value.last_error.unwrap_or_default(),
+    }
+}
+
 pub(crate) fn core_topic_head(
     value: msgbus_proto::msgbus::v1::TopicHead,
 ) -> Result<TopicHead, Status> {
@@ -459,6 +553,11 @@ where
     }
     let tombstone: TombstoneRange = serde_json::from_slice(&message.payload)
         .map_err(|err| Status::invalid_argument(format!("invalid tombstone payload: {err}")))?;
+    if message.origin != tombstone.origin {
+        return Err(Status::permission_denied(
+            "delete marker origin must match tombstone origin",
+        ));
+    }
     store
         .tombstone_range(
             &tombstone.topic,
@@ -498,5 +597,166 @@ fn status_from_error(error: MsgbusError) -> Status {
         MsgbusError::Storage(message) | MsgbusError::Serialization(message) => {
             Status::internal(message)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use msgbus_proto::msgbus::v1 as pb;
+    use msgbus_store_sqlite::SqliteStore;
+    use std::collections::HashMap;
+    use tonic::Code;
+
+    fn local_node() -> NodeId {
+        NodeId::new("tenant", "bl", "local").expect("valid node")
+    }
+
+    fn remote_node() -> NodeId {
+        NodeId::new("tenant", "bl", "remote").expect("valid node")
+    }
+
+    fn pb_node(node: NodeId) -> pb::NodeId {
+        pb::NodeId {
+            tenant_id: node.tenant_id,
+            bl_name: node.bl_name,
+            device_id: node.device_id,
+        }
+    }
+
+    #[tokio::test]
+    async fn publish_rejects_non_local_origin() {
+        let store = Arc::new(SqliteStore::open_in_memory().expect("open store"));
+        let service = MsgbusGrpcService::new(store, local_node());
+
+        let err = service
+            .publish(Request::new(pb::PublishRequest {
+                topic: "events".to_string(),
+                origin: Some(pb_node(remote_node())),
+                payload: b"payload".to_vec(),
+                headers: HashMap::new(),
+            }))
+            .await
+            .expect_err("publish should reject remote origin");
+
+        assert_eq!(err.code(), Code::PermissionDenied);
+    }
+
+    #[tokio::test]
+    async fn publish_rejects_reserved_delete_topic() {
+        let store = Arc::new(SqliteStore::open_in_memory().expect("open store"));
+        let service = MsgbusGrpcService::new(store, local_node());
+
+        let err = service
+            .publish(Request::new(pb::PublishRequest {
+                topic: DELETE_TOPIC.to_string(),
+                origin: None,
+                payload: b"payload".to_vec(),
+                headers: HashMap::new(),
+            }))
+            .await
+            .expect_err("publish should reject reserved topic");
+
+        assert_eq!(err.code(), Code::PermissionDenied);
+    }
+
+    #[tokio::test]
+    async fn delete_range_rejects_non_local_origin() {
+        let store = Arc::new(SqliteStore::open_in_memory().expect("open store"));
+        let service = MsgbusGrpcService::new(store, local_node());
+
+        let err = service
+            .delete_range(Request::new(pb::DeleteRangeRequest {
+                topic: "events".to_string(),
+                origin: Some(pb_node(remote_node())),
+                from_head_id: 1,
+                to_head_id: 1,
+            }))
+            .await
+            .expect_err("delete should reject remote origin");
+
+        assert_eq!(err.code(), Code::PermissionDenied);
+    }
+
+    #[tokio::test]
+    async fn replay_control_messages_applies_stored_delete_markers() {
+        let store = SqliteStore::open_in_memory().expect("open store");
+        let origin = local_node();
+        let topic = Topic::new("events").expect("valid topic");
+        store
+            .append_message(NewMessage::new(
+                topic.clone(),
+                origin.clone(),
+                b"one".to_vec(),
+                BTreeMap::new(),
+            ))
+            .await
+            .expect("append");
+
+        let tombstone = TombstoneRange {
+            topic: topic.clone(),
+            origin: origin.clone(),
+            from_head_id: HeadId(1),
+            to_head_id: HeadId(1),
+            created_at_ms: 1,
+        };
+        let control = StoredMessage {
+            id: MessageId::new(),
+            topic: Topic::new(DELETE_TOPIC).expect("delete topic"),
+            origin: origin.clone(),
+            head_id: HeadId(1),
+            payload: serde_json::to_vec(&tombstone).expect("encode tombstone"),
+            headers: BTreeMap::new(),
+            created_at_ms: 1,
+            deleted: false,
+        };
+        store
+            .put_replicated_message(control)
+            .await
+            .expect("store control message");
+
+        replay_control_messages(&store)
+            .await
+            .expect("replay controls");
+
+        let messages = store
+            .fetch_messages(FetchQuery {
+                topic,
+                origin,
+                from_head_id: HeadId(1),
+                limit: 10,
+            })
+            .await
+            .expect("fetch");
+        assert!(messages[0].deleted);
+    }
+
+    #[tokio::test]
+    async fn control_message_origin_must_match_tombstone_origin() {
+        let store = SqliteStore::open_in_memory().expect("open store");
+        let local = local_node();
+        let remote = remote_node();
+        let tombstone = TombstoneRange {
+            topic: Topic::new("events").expect("valid topic"),
+            origin: remote,
+            from_head_id: HeadId(1),
+            to_head_id: HeadId(1),
+            created_at_ms: 1,
+        };
+        let control = StoredMessage {
+            id: MessageId::new(),
+            topic: Topic::new(DELETE_TOPIC).expect("delete topic"),
+            origin: local,
+            head_id: HeadId(1),
+            payload: serde_json::to_vec(&tombstone).expect("encode tombstone"),
+            headers: BTreeMap::new(),
+            created_at_ms: 1,
+            deleted: false,
+        };
+
+        let err = apply_control_message(&store, &control)
+            .await
+            .expect_err("mismatched owner should fail");
+        assert_eq!(err.code(), Code::PermissionDenied);
     }
 }

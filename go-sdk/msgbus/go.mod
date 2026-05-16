@@ -1,4 +1,4 @@
-module github.com/example/msgbus/go-sdk/msgbus
+module github.com/lib-x/msgbus/go-sdk/msgbus
 
 go 1.24.0
 

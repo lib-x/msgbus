@@ -681,6 +681,122 @@ func (x *TopicHead) GetHeadId() uint64 {
 	return 0
 }
 
+type PeerSyncState struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Peer                string                 `protobuf:"bytes,1,opt,name=peer,proto3" json:"peer,omitempty"`
+	Topic               string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	Origin              *NodeId                `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
+	LocalHead           uint64                 `protobuf:"varint,4,opt,name=local_head,json=localHead,proto3" json:"local_head,omitempty"`
+	RemoteHead          uint64                 `protobuf:"varint,5,opt,name=remote_head,json=remoteHead,proto3" json:"remote_head,omitempty"`
+	LastSyncedHead      uint64                 `protobuf:"varint,6,opt,name=last_synced_head,json=lastSyncedHead,proto3" json:"last_synced_head,omitempty"`
+	LastAttemptAtMs     uint64                 `protobuf:"varint,7,opt,name=last_attempt_at_ms,json=lastAttemptAtMs,proto3" json:"last_attempt_at_ms,omitempty"`
+	LastSuccessAtMs     uint64                 `protobuf:"varint,8,opt,name=last_success_at_ms,json=lastSuccessAtMs,proto3" json:"last_success_at_ms,omitempty"`
+	ConsecutiveFailures uint32                 `protobuf:"varint,9,opt,name=consecutive_failures,json=consecutiveFailures,proto3" json:"consecutive_failures,omitempty"`
+	LastError           string                 `protobuf:"bytes,10,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *PeerSyncState) Reset() {
+	*x = PeerSyncState{}
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeerSyncState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerSyncState) ProtoMessage() {}
+
+func (x *PeerSyncState) ProtoReflect() protoreflect.Message {
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerSyncState.ProtoReflect.Descriptor instead.
+func (*PeerSyncState) Descriptor() ([]byte, []int) {
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *PeerSyncState) GetPeer() string {
+	if x != nil {
+		return x.Peer
+	}
+	return ""
+}
+
+func (x *PeerSyncState) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *PeerSyncState) GetOrigin() *NodeId {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
+func (x *PeerSyncState) GetLocalHead() uint64 {
+	if x != nil {
+		return x.LocalHead
+	}
+	return 0
+}
+
+func (x *PeerSyncState) GetRemoteHead() uint64 {
+	if x != nil {
+		return x.RemoteHead
+	}
+	return 0
+}
+
+func (x *PeerSyncState) GetLastSyncedHead() uint64 {
+	if x != nil {
+		return x.LastSyncedHead
+	}
+	return 0
+}
+
+func (x *PeerSyncState) GetLastAttemptAtMs() uint64 {
+	if x != nil {
+		return x.LastAttemptAtMs
+	}
+	return 0
+}
+
+func (x *PeerSyncState) GetLastSuccessAtMs() uint64 {
+	if x != nil {
+		return x.LastSuccessAtMs
+	}
+	return 0
+}
+
+func (x *PeerSyncState) GetConsecutiveFailures() uint32 {
+	if x != nil {
+		return x.ConsecutiveFailures
+	}
+	return 0
+}
+
+func (x *PeerSyncState) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
 type ListHeadsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -689,7 +805,7 @@ type ListHeadsRequest struct {
 
 func (x *ListHeadsRequest) Reset() {
 	*x = ListHeadsRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[11]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -701,7 +817,7 @@ func (x *ListHeadsRequest) String() string {
 func (*ListHeadsRequest) ProtoMessage() {}
 
 func (x *ListHeadsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[11]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -714,7 +830,7 @@ func (x *ListHeadsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHeadsRequest.ProtoReflect.Descriptor instead.
 func (*ListHeadsRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{11}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{12}
 }
 
 type ListHeadsResponse struct {
@@ -726,7 +842,7 @@ type ListHeadsResponse struct {
 
 func (x *ListHeadsResponse) Reset() {
 	*x = ListHeadsResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[12]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -738,7 +854,7 @@ func (x *ListHeadsResponse) String() string {
 func (*ListHeadsResponse) ProtoMessage() {}
 
 func (x *ListHeadsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[12]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -751,12 +867,92 @@ func (x *ListHeadsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHeadsResponse.ProtoReflect.Descriptor instead.
 func (*ListHeadsResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{12}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListHeadsResponse) GetHeads() []*TopicHead {
 	if x != nil {
 		return x.Heads
+	}
+	return nil
+}
+
+type ListPeerSyncStatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPeerSyncStatesRequest) Reset() {
+	*x = ListPeerSyncStatesRequest{}
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPeerSyncStatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPeerSyncStatesRequest) ProtoMessage() {}
+
+func (x *ListPeerSyncStatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPeerSyncStatesRequest.ProtoReflect.Descriptor instead.
+func (*ListPeerSyncStatesRequest) Descriptor() ([]byte, []int) {
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{14}
+}
+
+type ListPeerSyncStatesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	States        []*PeerSyncState       `protobuf:"bytes,1,rep,name=states,proto3" json:"states,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPeerSyncStatesResponse) Reset() {
+	*x = ListPeerSyncStatesResponse{}
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPeerSyncStatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPeerSyncStatesResponse) ProtoMessage() {}
+
+func (x *ListPeerSyncStatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPeerSyncStatesResponse.ProtoReflect.Descriptor instead.
+func (*ListPeerSyncStatesResponse) Descriptor() ([]byte, []int) {
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ListPeerSyncStatesResponse) GetStates() []*PeerSyncState {
+	if x != nil {
+		return x.States
 	}
 	return nil
 }
@@ -773,7 +969,7 @@ type DeleteRangeRequest struct {
 
 func (x *DeleteRangeRequest) Reset() {
 	*x = DeleteRangeRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[13]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +981,7 @@ func (x *DeleteRangeRequest) String() string {
 func (*DeleteRangeRequest) ProtoMessage() {}
 
 func (x *DeleteRangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[13]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +994,7 @@ func (x *DeleteRangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRangeRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRangeRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{13}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DeleteRangeRequest) GetTopic() string {
@@ -838,7 +1034,7 @@ type DeleteRangeResponse struct {
 
 func (x *DeleteRangeResponse) Reset() {
 	*x = DeleteRangeResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[14]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -850,7 +1046,7 @@ func (x *DeleteRangeResponse) String() string {
 func (*DeleteRangeResponse) ProtoMessage() {}
 
 func (x *DeleteRangeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[14]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -863,7 +1059,7 @@ func (x *DeleteRangeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRangeResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRangeResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{14}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DeleteRangeResponse) GetDeletedCount() uint64 {
@@ -891,7 +1087,7 @@ type FifoMessage struct {
 
 func (x *FifoMessage) Reset() {
 	*x = FifoMessage{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[15]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -903,7 +1099,7 @@ func (x *FifoMessage) String() string {
 func (*FifoMessage) ProtoMessage() {}
 
 func (x *FifoMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[15]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -916,7 +1112,7 @@ func (x *FifoMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FifoMessage.ProtoReflect.Descriptor instead.
 func (*FifoMessage) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{15}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *FifoMessage) GetId() string {
@@ -1003,7 +1199,7 @@ type EnqueueFifoRequest struct {
 
 func (x *EnqueueFifoRequest) Reset() {
 	*x = EnqueueFifoRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[16]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1015,7 +1211,7 @@ func (x *EnqueueFifoRequest) String() string {
 func (*EnqueueFifoRequest) ProtoMessage() {}
 
 func (x *EnqueueFifoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[16]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1028,7 +1224,7 @@ func (x *EnqueueFifoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnqueueFifoRequest.ProtoReflect.Descriptor instead.
 func (*EnqueueFifoRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{16}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *EnqueueFifoRequest) GetQueue() string {
@@ -1082,7 +1278,7 @@ type EnqueueFifoResponse struct {
 
 func (x *EnqueueFifoResponse) Reset() {
 	*x = EnqueueFifoResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[17]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1094,7 +1290,7 @@ func (x *EnqueueFifoResponse) String() string {
 func (*EnqueueFifoResponse) ProtoMessage() {}
 
 func (x *EnqueueFifoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[17]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1107,7 +1303,7 @@ func (x *EnqueueFifoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnqueueFifoResponse.ProtoReflect.Descriptor instead.
 func (*EnqueueFifoResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{17}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *EnqueueFifoResponse) GetMessage() *FifoMessage {
@@ -1126,7 +1322,7 @@ type PeekFifoRequest struct {
 
 func (x *PeekFifoRequest) Reset() {
 	*x = PeekFifoRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[18]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1138,7 +1334,7 @@ func (x *PeekFifoRequest) String() string {
 func (*PeekFifoRequest) ProtoMessage() {}
 
 func (x *PeekFifoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[18]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1151,7 +1347,7 @@ func (x *PeekFifoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeekFifoRequest.ProtoReflect.Descriptor instead.
 func (*PeekFifoRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{18}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PeekFifoRequest) GetQueue() string {
@@ -1170,7 +1366,7 @@ type PeekFifoResponse struct {
 
 func (x *PeekFifoResponse) Reset() {
 	*x = PeekFifoResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[19]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1182,7 +1378,7 @@ func (x *PeekFifoResponse) String() string {
 func (*PeekFifoResponse) ProtoMessage() {}
 
 func (x *PeekFifoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[19]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1195,7 +1391,7 @@ func (x *PeekFifoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeekFifoResponse.ProtoReflect.Descriptor instead.
 func (*PeekFifoResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{19}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PeekFifoResponse) GetMessage() *FifoMessage {
@@ -1215,7 +1411,7 @@ type AckFifoRequest struct {
 
 func (x *AckFifoRequest) Reset() {
 	*x = AckFifoRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[20]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1227,7 +1423,7 @@ func (x *AckFifoRequest) String() string {
 func (*AckFifoRequest) ProtoMessage() {}
 
 func (x *AckFifoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[20]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1240,7 +1436,7 @@ func (x *AckFifoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AckFifoRequest.ProtoReflect.Descriptor instead.
 func (*AckFifoRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{20}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *AckFifoRequest) GetQueue() string {
@@ -1266,7 +1462,7 @@ type AckFifoResponse struct {
 
 func (x *AckFifoResponse) Reset() {
 	*x = AckFifoResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[21]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1278,7 +1474,7 @@ func (x *AckFifoResponse) String() string {
 func (*AckFifoResponse) ProtoMessage() {}
 
 func (x *AckFifoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[21]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1291,7 +1487,7 @@ func (x *AckFifoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AckFifoResponse.ProtoReflect.Descriptor instead.
 func (*AckFifoResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{21}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *AckFifoResponse) GetAccepted() bool {
@@ -1311,7 +1507,7 @@ type RejectFifoRequest struct {
 
 func (x *RejectFifoRequest) Reset() {
 	*x = RejectFifoRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[22]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +1519,7 @@ func (x *RejectFifoRequest) String() string {
 func (*RejectFifoRequest) ProtoMessage() {}
 
 func (x *RejectFifoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[22]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +1532,7 @@ func (x *RejectFifoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectFifoRequest.ProtoReflect.Descriptor instead.
 func (*RejectFifoRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{22}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RejectFifoRequest) GetQueue() string {
@@ -1362,7 +1558,7 @@ type RejectFifoResponse struct {
 
 func (x *RejectFifoResponse) Reset() {
 	*x = RejectFifoResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[23]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1374,7 +1570,7 @@ func (x *RejectFifoResponse) String() string {
 func (*RejectFifoResponse) ProtoMessage() {}
 
 func (x *RejectFifoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[23]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1387,7 +1583,7 @@ func (x *RejectFifoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectFifoResponse.ProtoReflect.Descriptor instead.
 func (*RejectFifoResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{23}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RejectFifoResponse) GetAccepted() bool {
@@ -1405,7 +1601,7 @@ type HealthRequest struct {
 
 func (x *HealthRequest) Reset() {
 	*x = HealthRequest{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[24]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1417,7 +1613,7 @@ func (x *HealthRequest) String() string {
 func (*HealthRequest) ProtoMessage() {}
 
 func (x *HealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[24]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1430,7 +1626,7 @@ func (x *HealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthRequest.ProtoReflect.Descriptor instead.
 func (*HealthRequest) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{24}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{27}
 }
 
 type HealthResponse struct {
@@ -1443,7 +1639,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[25]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1455,7 +1651,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_msgbus_v1_msgbus_proto_msgTypes[25]
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1468,7 +1664,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{25}
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *HealthResponse) GetStatus() string {
@@ -1479,6 +1675,110 @@ func (x *HealthResponse) GetStatus() string {
 }
 
 func (x *HealthResponse) GetNode() *NodeId {
+	if x != nil {
+		return x.Node
+	}
+	return nil
+}
+
+type ReadyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadyRequest) Reset() {
+	*x = ReadyRequest{}
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadyRequest) ProtoMessage() {}
+
+func (x *ReadyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadyRequest.ProtoReflect.Descriptor instead.
+func (*ReadyRequest) Descriptor() ([]byte, []int) {
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{29}
+}
+
+type ReadyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ready         bool                   `protobuf:"varint,1,opt,name=ready,proto3" json:"ready,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	Node          *NodeId                `protobuf:"bytes,4,opt,name=node,proto3" json:"node,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadyResponse) Reset() {
+	*x = ReadyResponse{}
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadyResponse) ProtoMessage() {}
+
+func (x *ReadyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_msgbus_v1_msgbus_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadyResponse.ProtoReflect.Descriptor instead.
+func (*ReadyResponse) Descriptor() ([]byte, []int) {
+	return file_msgbus_v1_msgbus_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ReadyResponse) GetReady() bool {
+	if x != nil {
+		return x.Ready
+	}
+	return false
+}
+
+func (x *ReadyResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ReadyResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *ReadyResponse) GetNode() *NodeId {
 	if x != nil {
 		return x.Node
 	}
@@ -1541,10 +1841,28 @@ const file_msgbus_v1_msgbus_proto_rawDesc = "" +
 	"\tTopicHead\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12)\n" +
 	"\x06origin\x18\x02 \x01(\v2\x11.msgbus.v1.NodeIdR\x06origin\x12\x17\n" +
-	"\ahead_id\x18\x03 \x01(\x04R\x06headId\"\x12\n" +
+	"\ahead_id\x18\x03 \x01(\x04R\x06headId\"\xfa\x02\n" +
+	"\rPeerSyncState\x12\x12\n" +
+	"\x04peer\x18\x01 \x01(\tR\x04peer\x12\x14\n" +
+	"\x05topic\x18\x02 \x01(\tR\x05topic\x12)\n" +
+	"\x06origin\x18\x03 \x01(\v2\x11.msgbus.v1.NodeIdR\x06origin\x12\x1d\n" +
+	"\n" +
+	"local_head\x18\x04 \x01(\x04R\tlocalHead\x12\x1f\n" +
+	"\vremote_head\x18\x05 \x01(\x04R\n" +
+	"remoteHead\x12(\n" +
+	"\x10last_synced_head\x18\x06 \x01(\x04R\x0elastSyncedHead\x12+\n" +
+	"\x12last_attempt_at_ms\x18\a \x01(\x04R\x0flastAttemptAtMs\x12+\n" +
+	"\x12last_success_at_ms\x18\b \x01(\x04R\x0flastSuccessAtMs\x121\n" +
+	"\x14consecutive_failures\x18\t \x01(\rR\x13consecutiveFailures\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\n" +
+	" \x01(\tR\tlastError\"\x12\n" +
 	"\x10ListHeadsRequest\"?\n" +
 	"\x11ListHeadsResponse\x12*\n" +
-	"\x05heads\x18\x01 \x03(\v2\x14.msgbus.v1.TopicHeadR\x05heads\"\x95\x01\n" +
+	"\x05heads\x18\x01 \x03(\v2\x14.msgbus.v1.TopicHeadR\x05heads\"\x1b\n" +
+	"\x19ListPeerSyncStatesRequest\"N\n" +
+	"\x1aListPeerSyncStatesResponse\x120\n" +
+	"\x06states\x18\x01 \x03(\v2\x18.msgbus.v1.PeerSyncStateR\x06states\"\x95\x01\n" +
 	"\x12DeleteRangeRequest\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12)\n" +
 	"\x06origin\x18\x02 \x01(\v2\x11.msgbus.v1.NodeIdR\x06origin\x12 \n" +
@@ -1600,21 +1918,29 @@ const file_msgbus_v1_msgbus_proto_rawDesc = "" +
 	"\rHealthRequest\"O\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12%\n" +
-	"\x04node\x18\x02 \x01(\v2\x11.msgbus.v1.NodeIdR\x04node2\x90\x06\n" +
+	"\x04node\x18\x02 \x01(\v2\x11.msgbus.v1.NodeIdR\x04node\"\x0e\n" +
+	"\fReadyRequest\"z\n" +
+	"\rReadyResponse\x12\x14\n" +
+	"\x05ready\x18\x01 \x01(\bR\x05ready\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12%\n" +
+	"\x04node\x18\x04 \x01(\v2\x11.msgbus.v1.NodeIdR\x04node2\xaf\a\n" +
 	"\rMsgbusService\x12@\n" +
 	"\aPublish\x12\x19.msgbus.v1.PublishRequest\x1a\x1a.msgbus.v1.PublishResponse\x12<\n" +
 	"\x05Fetch\x12\x17.msgbus.v1.FetchRequest\x1a\x18.msgbus.v1.FetchResponse0\x01\x12H\n" +
 	"\tSubscribe\x12\x1b.msgbus.v1.SubscribeRequest\x1a\x1c.msgbus.v1.SubscribeResponse0\x01\x12@\n" +
 	"\aGetHead\x12\x19.msgbus.v1.GetHeadRequest\x1a\x1a.msgbus.v1.GetHeadResponse\x12F\n" +
-	"\tListHeads\x12\x1b.msgbus.v1.ListHeadsRequest\x1a\x1c.msgbus.v1.ListHeadsResponse\x12L\n" +
+	"\tListHeads\x12\x1b.msgbus.v1.ListHeadsRequest\x1a\x1c.msgbus.v1.ListHeadsResponse\x12a\n" +
+	"\x12ListPeerSyncStates\x12$.msgbus.v1.ListPeerSyncStatesRequest\x1a%.msgbus.v1.ListPeerSyncStatesResponse\x12L\n" +
 	"\vDeleteRange\x12\x1d.msgbus.v1.DeleteRangeRequest\x1a\x1e.msgbus.v1.DeleteRangeResponse\x12L\n" +
 	"\vEnqueueFifo\x12\x1d.msgbus.v1.EnqueueFifoRequest\x1a\x1e.msgbus.v1.EnqueueFifoResponse\x12C\n" +
 	"\bPeekFifo\x12\x1a.msgbus.v1.PeekFifoRequest\x1a\x1b.msgbus.v1.PeekFifoResponse\x12@\n" +
 	"\aAckFifo\x12\x19.msgbus.v1.AckFifoRequest\x1a\x1a.msgbus.v1.AckFifoResponse\x12I\n" +
 	"\n" +
 	"RejectFifo\x12\x1c.msgbus.v1.RejectFifoRequest\x1a\x1d.msgbus.v1.RejectFifoResponse\x12=\n" +
-	"\x06Health\x12\x18.msgbus.v1.HealthRequest\x1a\x19.msgbus.v1.HealthResponseB\xa1\x01\n" +
-	"\rcom.msgbus.v1B\vMsgbusProtoP\x01Z>github.com/example/msgbus/go-sdk/msgbus/gen/msgbus/v1;msgbusv1\xa2\x02\x03MXX\xaa\x02\tMsgbus.V1\xca\x02\tMsgbus\\V1\xe2\x02\x15Msgbus\\V1\\GPBMetadata\xea\x02\n" +
+	"\x06Health\x12\x18.msgbus.v1.HealthRequest\x1a\x19.msgbus.v1.HealthResponse\x12:\n" +
+	"\x05Ready\x12\x17.msgbus.v1.ReadyRequest\x1a\x18.msgbus.v1.ReadyResponseB\x9f\x01\n" +
+	"\rcom.msgbus.v1B\vMsgbusProtoP\x01Z<github.com/lib-x/msgbus/go-sdk/msgbus/gen/msgbus/v1;msgbusv1\xa2\x02\x03MXX\xaa\x02\tMsgbus.V1\xca\x02\tMsgbus\\V1\xe2\x02\x15Msgbus\\V1\\GPBMetadata\xea\x02\n" +
 	"Msgbus::V1b\x06proto3"
 
 var (
@@ -1629,44 +1955,49 @@ func file_msgbus_v1_msgbus_proto_rawDescGZIP() []byte {
 	return file_msgbus_v1_msgbus_proto_rawDescData
 }
 
-var file_msgbus_v1_msgbus_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_msgbus_v1_msgbus_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_msgbus_v1_msgbus_proto_goTypes = []any{
-	(*NodeId)(nil),              // 0: msgbus.v1.NodeId
-	(*MessageEnvelope)(nil),     // 1: msgbus.v1.MessageEnvelope
-	(*PublishRequest)(nil),      // 2: msgbus.v1.PublishRequest
-	(*PublishResponse)(nil),     // 3: msgbus.v1.PublishResponse
-	(*FetchRequest)(nil),        // 4: msgbus.v1.FetchRequest
-	(*FetchResponse)(nil),       // 5: msgbus.v1.FetchResponse
-	(*SubscribeRequest)(nil),    // 6: msgbus.v1.SubscribeRequest
-	(*SubscribeResponse)(nil),   // 7: msgbus.v1.SubscribeResponse
-	(*GetHeadRequest)(nil),      // 8: msgbus.v1.GetHeadRequest
-	(*GetHeadResponse)(nil),     // 9: msgbus.v1.GetHeadResponse
-	(*TopicHead)(nil),           // 10: msgbus.v1.TopicHead
-	(*ListHeadsRequest)(nil),    // 11: msgbus.v1.ListHeadsRequest
-	(*ListHeadsResponse)(nil),   // 12: msgbus.v1.ListHeadsResponse
-	(*DeleteRangeRequest)(nil),  // 13: msgbus.v1.DeleteRangeRequest
-	(*DeleteRangeResponse)(nil), // 14: msgbus.v1.DeleteRangeResponse
-	(*FifoMessage)(nil),         // 15: msgbus.v1.FifoMessage
-	(*EnqueueFifoRequest)(nil),  // 16: msgbus.v1.EnqueueFifoRequest
-	(*EnqueueFifoResponse)(nil), // 17: msgbus.v1.EnqueueFifoResponse
-	(*PeekFifoRequest)(nil),     // 18: msgbus.v1.PeekFifoRequest
-	(*PeekFifoResponse)(nil),    // 19: msgbus.v1.PeekFifoResponse
-	(*AckFifoRequest)(nil),      // 20: msgbus.v1.AckFifoRequest
-	(*AckFifoResponse)(nil),     // 21: msgbus.v1.AckFifoResponse
-	(*RejectFifoRequest)(nil),   // 22: msgbus.v1.RejectFifoRequest
-	(*RejectFifoResponse)(nil),  // 23: msgbus.v1.RejectFifoResponse
-	(*HealthRequest)(nil),       // 24: msgbus.v1.HealthRequest
-	(*HealthResponse)(nil),      // 25: msgbus.v1.HealthResponse
-	nil,                         // 26: msgbus.v1.MessageEnvelope.HeadersEntry
-	nil,                         // 27: msgbus.v1.PublishRequest.HeadersEntry
-	nil,                         // 28: msgbus.v1.FifoMessage.HeadersEntry
-	nil,                         // 29: msgbus.v1.EnqueueFifoRequest.HeadersEntry
+	(*NodeId)(nil),                     // 0: msgbus.v1.NodeId
+	(*MessageEnvelope)(nil),            // 1: msgbus.v1.MessageEnvelope
+	(*PublishRequest)(nil),             // 2: msgbus.v1.PublishRequest
+	(*PublishResponse)(nil),            // 3: msgbus.v1.PublishResponse
+	(*FetchRequest)(nil),               // 4: msgbus.v1.FetchRequest
+	(*FetchResponse)(nil),              // 5: msgbus.v1.FetchResponse
+	(*SubscribeRequest)(nil),           // 6: msgbus.v1.SubscribeRequest
+	(*SubscribeResponse)(nil),          // 7: msgbus.v1.SubscribeResponse
+	(*GetHeadRequest)(nil),             // 8: msgbus.v1.GetHeadRequest
+	(*GetHeadResponse)(nil),            // 9: msgbus.v1.GetHeadResponse
+	(*TopicHead)(nil),                  // 10: msgbus.v1.TopicHead
+	(*PeerSyncState)(nil),              // 11: msgbus.v1.PeerSyncState
+	(*ListHeadsRequest)(nil),           // 12: msgbus.v1.ListHeadsRequest
+	(*ListHeadsResponse)(nil),          // 13: msgbus.v1.ListHeadsResponse
+	(*ListPeerSyncStatesRequest)(nil),  // 14: msgbus.v1.ListPeerSyncStatesRequest
+	(*ListPeerSyncStatesResponse)(nil), // 15: msgbus.v1.ListPeerSyncStatesResponse
+	(*DeleteRangeRequest)(nil),         // 16: msgbus.v1.DeleteRangeRequest
+	(*DeleteRangeResponse)(nil),        // 17: msgbus.v1.DeleteRangeResponse
+	(*FifoMessage)(nil),                // 18: msgbus.v1.FifoMessage
+	(*EnqueueFifoRequest)(nil),         // 19: msgbus.v1.EnqueueFifoRequest
+	(*EnqueueFifoResponse)(nil),        // 20: msgbus.v1.EnqueueFifoResponse
+	(*PeekFifoRequest)(nil),            // 21: msgbus.v1.PeekFifoRequest
+	(*PeekFifoResponse)(nil),           // 22: msgbus.v1.PeekFifoResponse
+	(*AckFifoRequest)(nil),             // 23: msgbus.v1.AckFifoRequest
+	(*AckFifoResponse)(nil),            // 24: msgbus.v1.AckFifoResponse
+	(*RejectFifoRequest)(nil),          // 25: msgbus.v1.RejectFifoRequest
+	(*RejectFifoResponse)(nil),         // 26: msgbus.v1.RejectFifoResponse
+	(*HealthRequest)(nil),              // 27: msgbus.v1.HealthRequest
+	(*HealthResponse)(nil),             // 28: msgbus.v1.HealthResponse
+	(*ReadyRequest)(nil),               // 29: msgbus.v1.ReadyRequest
+	(*ReadyResponse)(nil),              // 30: msgbus.v1.ReadyResponse
+	nil,                                // 31: msgbus.v1.MessageEnvelope.HeadersEntry
+	nil,                                // 32: msgbus.v1.PublishRequest.HeadersEntry
+	nil,                                // 33: msgbus.v1.FifoMessage.HeadersEntry
+	nil,                                // 34: msgbus.v1.EnqueueFifoRequest.HeadersEntry
 }
 var file_msgbus_v1_msgbus_proto_depIdxs = []int32{
 	0,  // 0: msgbus.v1.MessageEnvelope.origin:type_name -> msgbus.v1.NodeId
-	26, // 1: msgbus.v1.MessageEnvelope.headers:type_name -> msgbus.v1.MessageEnvelope.HeadersEntry
+	31, // 1: msgbus.v1.MessageEnvelope.headers:type_name -> msgbus.v1.MessageEnvelope.HeadersEntry
 	0,  // 2: msgbus.v1.PublishRequest.origin:type_name -> msgbus.v1.NodeId
-	27, // 3: msgbus.v1.PublishRequest.headers:type_name -> msgbus.v1.PublishRequest.HeadersEntry
+	32, // 3: msgbus.v1.PublishRequest.headers:type_name -> msgbus.v1.PublishRequest.HeadersEntry
 	1,  // 4: msgbus.v1.PublishResponse.message:type_name -> msgbus.v1.MessageEnvelope
 	0,  // 5: msgbus.v1.FetchRequest.origin:type_name -> msgbus.v1.NodeId
 	1,  // 6: msgbus.v1.FetchResponse.message:type_name -> msgbus.v1.MessageEnvelope
@@ -1674,44 +2005,51 @@ var file_msgbus_v1_msgbus_proto_depIdxs = []int32{
 	1,  // 8: msgbus.v1.SubscribeResponse.message:type_name -> msgbus.v1.MessageEnvelope
 	0,  // 9: msgbus.v1.GetHeadRequest.origin:type_name -> msgbus.v1.NodeId
 	0,  // 10: msgbus.v1.TopicHead.origin:type_name -> msgbus.v1.NodeId
-	10, // 11: msgbus.v1.ListHeadsResponse.heads:type_name -> msgbus.v1.TopicHead
-	0,  // 12: msgbus.v1.DeleteRangeRequest.origin:type_name -> msgbus.v1.NodeId
-	0,  // 13: msgbus.v1.FifoMessage.source:type_name -> msgbus.v1.NodeId
-	0,  // 14: msgbus.v1.FifoMessage.target:type_name -> msgbus.v1.NodeId
-	28, // 15: msgbus.v1.FifoMessage.headers:type_name -> msgbus.v1.FifoMessage.HeadersEntry
-	0,  // 16: msgbus.v1.EnqueueFifoRequest.source:type_name -> msgbus.v1.NodeId
-	0,  // 17: msgbus.v1.EnqueueFifoRequest.target:type_name -> msgbus.v1.NodeId
-	29, // 18: msgbus.v1.EnqueueFifoRequest.headers:type_name -> msgbus.v1.EnqueueFifoRequest.HeadersEntry
-	15, // 19: msgbus.v1.EnqueueFifoResponse.message:type_name -> msgbus.v1.FifoMessage
-	15, // 20: msgbus.v1.PeekFifoResponse.message:type_name -> msgbus.v1.FifoMessage
-	0,  // 21: msgbus.v1.HealthResponse.node:type_name -> msgbus.v1.NodeId
-	2,  // 22: msgbus.v1.MsgbusService.Publish:input_type -> msgbus.v1.PublishRequest
-	4,  // 23: msgbus.v1.MsgbusService.Fetch:input_type -> msgbus.v1.FetchRequest
-	6,  // 24: msgbus.v1.MsgbusService.Subscribe:input_type -> msgbus.v1.SubscribeRequest
-	8,  // 25: msgbus.v1.MsgbusService.GetHead:input_type -> msgbus.v1.GetHeadRequest
-	11, // 26: msgbus.v1.MsgbusService.ListHeads:input_type -> msgbus.v1.ListHeadsRequest
-	13, // 27: msgbus.v1.MsgbusService.DeleteRange:input_type -> msgbus.v1.DeleteRangeRequest
-	16, // 28: msgbus.v1.MsgbusService.EnqueueFifo:input_type -> msgbus.v1.EnqueueFifoRequest
-	18, // 29: msgbus.v1.MsgbusService.PeekFifo:input_type -> msgbus.v1.PeekFifoRequest
-	20, // 30: msgbus.v1.MsgbusService.AckFifo:input_type -> msgbus.v1.AckFifoRequest
-	22, // 31: msgbus.v1.MsgbusService.RejectFifo:input_type -> msgbus.v1.RejectFifoRequest
-	24, // 32: msgbus.v1.MsgbusService.Health:input_type -> msgbus.v1.HealthRequest
-	3,  // 33: msgbus.v1.MsgbusService.Publish:output_type -> msgbus.v1.PublishResponse
-	5,  // 34: msgbus.v1.MsgbusService.Fetch:output_type -> msgbus.v1.FetchResponse
-	7,  // 35: msgbus.v1.MsgbusService.Subscribe:output_type -> msgbus.v1.SubscribeResponse
-	9,  // 36: msgbus.v1.MsgbusService.GetHead:output_type -> msgbus.v1.GetHeadResponse
-	12, // 37: msgbus.v1.MsgbusService.ListHeads:output_type -> msgbus.v1.ListHeadsResponse
-	14, // 38: msgbus.v1.MsgbusService.DeleteRange:output_type -> msgbus.v1.DeleteRangeResponse
-	17, // 39: msgbus.v1.MsgbusService.EnqueueFifo:output_type -> msgbus.v1.EnqueueFifoResponse
-	19, // 40: msgbus.v1.MsgbusService.PeekFifo:output_type -> msgbus.v1.PeekFifoResponse
-	21, // 41: msgbus.v1.MsgbusService.AckFifo:output_type -> msgbus.v1.AckFifoResponse
-	23, // 42: msgbus.v1.MsgbusService.RejectFifo:output_type -> msgbus.v1.RejectFifoResponse
-	25, // 43: msgbus.v1.MsgbusService.Health:output_type -> msgbus.v1.HealthResponse
-	33, // [33:44] is the sub-list for method output_type
-	22, // [22:33] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	0,  // 11: msgbus.v1.PeerSyncState.origin:type_name -> msgbus.v1.NodeId
+	10, // 12: msgbus.v1.ListHeadsResponse.heads:type_name -> msgbus.v1.TopicHead
+	11, // 13: msgbus.v1.ListPeerSyncStatesResponse.states:type_name -> msgbus.v1.PeerSyncState
+	0,  // 14: msgbus.v1.DeleteRangeRequest.origin:type_name -> msgbus.v1.NodeId
+	0,  // 15: msgbus.v1.FifoMessage.source:type_name -> msgbus.v1.NodeId
+	0,  // 16: msgbus.v1.FifoMessage.target:type_name -> msgbus.v1.NodeId
+	33, // 17: msgbus.v1.FifoMessage.headers:type_name -> msgbus.v1.FifoMessage.HeadersEntry
+	0,  // 18: msgbus.v1.EnqueueFifoRequest.source:type_name -> msgbus.v1.NodeId
+	0,  // 19: msgbus.v1.EnqueueFifoRequest.target:type_name -> msgbus.v1.NodeId
+	34, // 20: msgbus.v1.EnqueueFifoRequest.headers:type_name -> msgbus.v1.EnqueueFifoRequest.HeadersEntry
+	18, // 21: msgbus.v1.EnqueueFifoResponse.message:type_name -> msgbus.v1.FifoMessage
+	18, // 22: msgbus.v1.PeekFifoResponse.message:type_name -> msgbus.v1.FifoMessage
+	0,  // 23: msgbus.v1.HealthResponse.node:type_name -> msgbus.v1.NodeId
+	0,  // 24: msgbus.v1.ReadyResponse.node:type_name -> msgbus.v1.NodeId
+	2,  // 25: msgbus.v1.MsgbusService.Publish:input_type -> msgbus.v1.PublishRequest
+	4,  // 26: msgbus.v1.MsgbusService.Fetch:input_type -> msgbus.v1.FetchRequest
+	6,  // 27: msgbus.v1.MsgbusService.Subscribe:input_type -> msgbus.v1.SubscribeRequest
+	8,  // 28: msgbus.v1.MsgbusService.GetHead:input_type -> msgbus.v1.GetHeadRequest
+	12, // 29: msgbus.v1.MsgbusService.ListHeads:input_type -> msgbus.v1.ListHeadsRequest
+	14, // 30: msgbus.v1.MsgbusService.ListPeerSyncStates:input_type -> msgbus.v1.ListPeerSyncStatesRequest
+	16, // 31: msgbus.v1.MsgbusService.DeleteRange:input_type -> msgbus.v1.DeleteRangeRequest
+	19, // 32: msgbus.v1.MsgbusService.EnqueueFifo:input_type -> msgbus.v1.EnqueueFifoRequest
+	21, // 33: msgbus.v1.MsgbusService.PeekFifo:input_type -> msgbus.v1.PeekFifoRequest
+	23, // 34: msgbus.v1.MsgbusService.AckFifo:input_type -> msgbus.v1.AckFifoRequest
+	25, // 35: msgbus.v1.MsgbusService.RejectFifo:input_type -> msgbus.v1.RejectFifoRequest
+	27, // 36: msgbus.v1.MsgbusService.Health:input_type -> msgbus.v1.HealthRequest
+	29, // 37: msgbus.v1.MsgbusService.Ready:input_type -> msgbus.v1.ReadyRequest
+	3,  // 38: msgbus.v1.MsgbusService.Publish:output_type -> msgbus.v1.PublishResponse
+	5,  // 39: msgbus.v1.MsgbusService.Fetch:output_type -> msgbus.v1.FetchResponse
+	7,  // 40: msgbus.v1.MsgbusService.Subscribe:output_type -> msgbus.v1.SubscribeResponse
+	9,  // 41: msgbus.v1.MsgbusService.GetHead:output_type -> msgbus.v1.GetHeadResponse
+	13, // 42: msgbus.v1.MsgbusService.ListHeads:output_type -> msgbus.v1.ListHeadsResponse
+	15, // 43: msgbus.v1.MsgbusService.ListPeerSyncStates:output_type -> msgbus.v1.ListPeerSyncStatesResponse
+	17, // 44: msgbus.v1.MsgbusService.DeleteRange:output_type -> msgbus.v1.DeleteRangeResponse
+	20, // 45: msgbus.v1.MsgbusService.EnqueueFifo:output_type -> msgbus.v1.EnqueueFifoResponse
+	22, // 46: msgbus.v1.MsgbusService.PeekFifo:output_type -> msgbus.v1.PeekFifoResponse
+	24, // 47: msgbus.v1.MsgbusService.AckFifo:output_type -> msgbus.v1.AckFifoResponse
+	26, // 48: msgbus.v1.MsgbusService.RejectFifo:output_type -> msgbus.v1.RejectFifoResponse
+	28, // 49: msgbus.v1.MsgbusService.Health:output_type -> msgbus.v1.HealthResponse
+	30, // 50: msgbus.v1.MsgbusService.Ready:output_type -> msgbus.v1.ReadyResponse
+	38, // [38:51] is the sub-list for method output_type
+	25, // [25:38] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_msgbus_v1_msgbus_proto_init() }
@@ -1725,7 +2063,7 @@ func file_msgbus_v1_msgbus_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_msgbus_v1_msgbus_proto_rawDesc), len(file_msgbus_v1_msgbus_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -3,7 +3,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/example/msgbus/go-sdk/msgbus/gen
+      value: github.com/lib-x/msgbus/go-sdk/msgbus/gen
 plugins:
   - remote: buf.build/protocolbuffers/go
     out: go-sdk/msgbus/gen
@@ -13,4 +13,3 @@ plugins:
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false
-

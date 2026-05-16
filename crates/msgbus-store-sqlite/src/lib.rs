@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use msgbus_core::{
     FetchQuery, HeadId, MessageId, MsgbusError, MsgbusStore, NewFifoMessage, NewMessage, NodeId,
-    QueueName, ReplicateResult, Result, StoredFifoMessage, StoredMessage, TombstoneRange, Topic,
-    TopicHead, now_ms,
+    PeerSyncState, QueueName, ReplicateResult, Result, StoredFifoMessage, StoredMessage,
+    TombstoneRange, Topic, TopicHead, now_ms,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
@@ -43,57 +43,7 @@ impl MsgbusStore for SqliteStore {
     async fn append_message(&self, message: NewMessage) -> Result<StoredMessage> {
         let mut conn = self.connection()?;
         let tx = conn.transaction().map_err(storage_err)?;
-        let topic = message.topic.as_str().to_string();
-        let origin_key = message.origin.key();
-        let current = tx
-            .query_row(
-                "SELECT head_id FROM heads WHERE topic = ?1 AND origin_key = ?2",
-                params![topic, origin_key],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()
-            .map_err(storage_err)?
-            .map(i64_to_u64)
-            .transpose()?
-            .unwrap_or(0);
-        let next = current.saturating_add(1);
-        tx.execute(
-            "INSERT INTO heads(topic, origin_key, head_id)
-             VALUES (?1, ?2, ?3)
-             ON CONFLICT(topic, origin_key) DO UPDATE SET head_id = excluded.head_id",
-            params![topic, origin_key, u64_to_i64(next)?],
-        )
-        .map_err(storage_err)?;
-
-        let mut stored = StoredMessage {
-            id: message.id,
-            topic: message.topic,
-            origin: message.origin,
-            head_id: HeadId(next),
-            payload: message.payload,
-            headers: message.headers,
-            created_at_ms: now_ms(),
-            deleted: false,
-        };
-        apply_tombstone_markers(&tx, &mut stored)?;
-
-        tx.execute(
-            "INSERT INTO messages(
-                topic, origin_key, origin_json, head_id, id, payload, headers_json, created_at_ms, deleted
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                stored.topic.as_str(),
-                stored.origin.key(),
-                encode_json(&stored.origin)?,
-                u64_to_i64(stored.head_id.0)?,
-                stored.id.as_str(),
-                stored.payload,
-                encode_json(&stored.headers)?,
-                u64_to_i64(stored.created_at_ms)?,
-                false,
-            ],
-        )
-        .map_err(storage_err)?;
+        let stored = append_message_in_tx(&tx, message)?;
         tx.commit().map_err(storage_err)?;
         Ok(stored)
     }
@@ -300,41 +250,49 @@ impl MsgbusStore for SqliteStore {
 
         let mut conn = self.connection()?;
         let tx = conn.transaction().map_err(storage_err)?;
-        let changed = tx
-            .execute(
-                "UPDATE messages
-                 SET deleted = TRUE
-                 WHERE topic = ?1 AND origin_key = ?2 AND head_id >= ?3 AND head_id <= ?4 AND deleted = FALSE",
-                params![
-                    topic.as_str(),
-                    origin.key(),
-                    u64_to_i64(from.0)?,
-                    u64_to_i64(to.0)?
-                ],
-            )
-            .map_err(storage_err)? as u64;
+        let changed = tombstone_range_in_tx(&tx, topic, origin, from, to, now_ms())?;
+        tx.commit().map_err(storage_err)?;
+        Ok(changed)
+    }
+
+    async fn tombstone_range_with_marker(
+        &self,
+        topic: &Topic,
+        origin: &NodeId,
+        from: HeadId,
+        to: HeadId,
+        marker_topic: &Topic,
+        marker_origin: &NodeId,
+    ) -> Result<(u64, StoredMessage)> {
+        if from.0 > to.0 {
+            return Err(MsgbusError::InvalidArgument(
+                "from_head_id must be <= to_head_id".to_string(),
+            ));
+        }
+
+        let mut conn = self.connection()?;
+        let tx = conn.transaction().map_err(storage_err)?;
+        let created_at_ms = now_ms();
+        let changed = tombstone_range_in_tx(&tx, topic, origin, from, to, created_at_ms)?;
         let tombstone = TombstoneRange {
             topic: topic.clone(),
             origin: origin.clone(),
             from_head_id: from,
             to_head_id: to,
-            created_at_ms: now_ms(),
+            created_at_ms,
         };
-        tx.execute(
-            "INSERT INTO tombstones(topic, origin_key, from_head_id, to_head_id, created_at_ms, range_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                topic.as_str(),
-                origin.key(),
-                u64_to_i64(from.0)?,
-                u64_to_i64(to.0)?,
-                u64_to_i64(tombstone.created_at_ms)?,
-                encode_json(&tombstone)?,
-            ],
-        )
-        .map_err(storage_err)?;
+        let marker = append_message_in_tx(
+            &tx,
+            NewMessage::new(
+                marker_topic.clone(),
+                marker_origin.clone(),
+                serde_json::to_vec(&tombstone)
+                    .map_err(|err| MsgbusError::Serialization(err.to_string()))?,
+                std::collections::BTreeMap::new(),
+            ),
+        )?;
         tx.commit().map_err(storage_err)?;
-        Ok(changed)
+        Ok((changed, marker))
     }
 
     async fn enqueue_fifo(&self, message: NewFifoMessage) -> Result<StoredFifoMessage> {
@@ -418,11 +376,174 @@ impl MsgbusStore for SqliteStore {
     async fn reject_fifo(&self, queue: &QueueName, message_id: &MessageId) -> Result<bool> {
         update_fifo_front(self, queue, message_id, FifoFrontAction::Reject)
     }
+
+    async fn record_peer_sync_state(&self, mut state: PeerSyncState) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction().map_err(storage_err)?;
+        let (topic_key, origin_key) = peer_sync_keys(&state);
+        let previous = tx
+            .query_row(
+                "SELECT state_json FROM peer_sync_states
+                 WHERE peer = ?1 AND topic = ?2 AND origin_key = ?3",
+                params![state.peer.as_str(), topic_key.as_str(), origin_key.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(storage_err)?
+            .map(|value| decode_json::<PeerSyncState>(&value))
+            .transpose()?;
+        state.consecutive_failures = if state.last_error.is_some() {
+            if let Some(previous) = previous {
+                if state.last_success_at_ms == 0 {
+                    state.last_success_at_ms = previous.last_success_at_ms;
+                }
+                previous.consecutive_failures.saturating_add(1)
+            } else {
+                1
+            }
+        } else {
+            0
+        };
+        tx.execute(
+            "INSERT INTO peer_sync_states(peer, topic, origin_key, state_json)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(peer, topic, origin_key) DO UPDATE SET state_json = excluded.state_json",
+            params![
+                state.peer.as_str(),
+                topic_key.as_str(),
+                origin_key.as_str(),
+                encode_json(&state)?
+            ],
+        )
+        .map_err(storage_err)?;
+        tx.commit().map_err(storage_err)
+    }
+
+    async fn list_peer_sync_states(&self) -> Result<Vec<PeerSyncState>> {
+        let conn = self.connection()?;
+        let mut stmt = conn
+            .prepare("SELECT state_json FROM peer_sync_states ORDER BY peer, topic, origin_key")
+            .map_err(storage_err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                let state_json: String = row.get(0)?;
+                decode_json(&state_json).map_err(sql_from_msgbus)
+            })
+            .map_err(storage_err)?;
+
+        let mut states = Vec::new();
+        for row in rows {
+            states.push(row.map_err(storage_err)?);
+        }
+        Ok(states)
+    }
 }
 
 enum FifoFrontAction {
     Ack,
     Reject,
+}
+
+fn append_message_in_tx(
+    tx: &rusqlite::Transaction<'_>,
+    message: NewMessage,
+) -> Result<StoredMessage> {
+    let topic = message.topic.as_str().to_string();
+    let origin_key = message.origin.key();
+    let current = tx
+        .query_row(
+            "SELECT head_id FROM heads WHERE topic = ?1 AND origin_key = ?2",
+            params![topic, origin_key],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(storage_err)?
+        .map(i64_to_u64)
+        .transpose()?
+        .unwrap_or(0);
+    let next = current.saturating_add(1);
+    tx.execute(
+        "INSERT INTO heads(topic, origin_key, head_id)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(topic, origin_key) DO UPDATE SET head_id = excluded.head_id",
+        params![topic, origin_key, u64_to_i64(next)?],
+    )
+    .map_err(storage_err)?;
+
+    let mut stored = StoredMessage {
+        id: message.id,
+        topic: message.topic,
+        origin: message.origin,
+        head_id: HeadId(next),
+        payload: message.payload,
+        headers: message.headers,
+        created_at_ms: now_ms(),
+        deleted: false,
+    };
+    apply_tombstone_markers(tx, &mut stored)?;
+
+    tx.execute(
+        "INSERT INTO messages(
+            topic, origin_key, origin_json, head_id, id, payload, headers_json, created_at_ms, deleted
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            stored.topic.as_str(),
+            stored.origin.key(),
+            encode_json(&stored.origin)?,
+            u64_to_i64(stored.head_id.0)?,
+            stored.id.as_str(),
+            stored.payload,
+            encode_json(&stored.headers)?,
+            u64_to_i64(stored.created_at_ms)?,
+            stored.deleted,
+        ],
+    )
+    .map_err(storage_err)?;
+    Ok(stored)
+}
+
+fn tombstone_range_in_tx(
+    tx: &rusqlite::Transaction<'_>,
+    topic: &Topic,
+    origin: &NodeId,
+    from: HeadId,
+    to: HeadId,
+    created_at_ms: u64,
+) -> Result<u64> {
+    let changed = tx
+        .execute(
+            "UPDATE messages
+             SET deleted = TRUE
+             WHERE topic = ?1 AND origin_key = ?2 AND head_id >= ?3 AND head_id <= ?4 AND deleted = FALSE",
+            params![
+                topic.as_str(),
+                origin.key(),
+                u64_to_i64(from.0)?,
+                u64_to_i64(to.0)?
+            ],
+        )
+        .map_err(storage_err)? as u64;
+    let tombstone = TombstoneRange {
+        topic: topic.clone(),
+        origin: origin.clone(),
+        from_head_id: from,
+        to_head_id: to,
+        created_at_ms,
+    };
+    tx.execute(
+        "INSERT OR IGNORE INTO tombstones(topic, origin_key, from_head_id, to_head_id, created_at_ms, range_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            topic.as_str(),
+            origin.key(),
+            u64_to_i64(from.0)?,
+            u64_to_i64(to.0)?,
+            u64_to_i64(tombstone.created_at_ms)?,
+            encode_json(&tombstone)?,
+        ],
+    )
+    .map_err(storage_err)?;
+    Ok(changed)
 }
 
 fn update_fifo_front(
@@ -477,6 +598,15 @@ fn update_fifo_front(
     };
     tx.commit().map_err(storage_err)?;
     Ok(accepted)
+}
+
+fn peer_sync_keys(state: &PeerSyncState) -> (String, String) {
+    let topic = state
+        .topic
+        .as_ref()
+        .map_or_else(String::new, |topic| topic.as_str().to_string());
+    let origin = state.origin.as_ref().map_or_else(String::new, NodeId::key);
+    (topic, origin)
 }
 
 fn configure(conn: &Connection) -> Result<()> {
@@ -544,6 +674,14 @@ fn initialize(conn: &Connection) -> Result<()> {
         );
 
         CREATE UNIQUE INDEX IF NOT EXISTS idx_fifo_messages_id ON fifo_messages(id);
+
+        CREATE TABLE IF NOT EXISTS peer_sync_states (
+            peer TEXT NOT NULL,
+            topic TEXT NOT NULL,
+            origin_key TEXT NOT NULL,
+            state_json TEXT NOT NULL,
+            PRIMARY KEY (peer, topic, origin_key)
+        );
         ",
     )
     .map_err(storage_err)
@@ -777,6 +915,141 @@ mod tests {
         assert!(!messages[0].deleted);
         assert!(messages[1].deleted);
         assert!(messages[2].deleted);
+    }
+
+    #[tokio::test]
+    async fn tombstone_range_is_idempotent() {
+        let store = SqliteStore::open_in_memory().expect("open store");
+        let origin = node();
+        let topic = topic();
+
+        store
+            .tombstone_range(&topic, &origin, HeadId(1), HeadId(1))
+            .await
+            .expect("first tombstone");
+        store
+            .tombstone_range(&topic, &origin, HeadId(1), HeadId(1))
+            .await
+            .expect("second tombstone");
+    }
+
+    #[tokio::test]
+    async fn future_tombstone_marks_later_appends() {
+        let store = SqliteStore::open_in_memory().expect("open store");
+        let origin = node();
+        let topic = topic();
+
+        store
+            .tombstone_range(&topic, &origin, HeadId(1), HeadId(1))
+            .await
+            .expect("future tombstone");
+        let stored = store
+            .append_message(NewMessage::new(
+                topic.clone(),
+                origin.clone(),
+                b"one".to_vec(),
+                BTreeMap::new(),
+            ))
+            .await
+            .expect("append");
+
+        assert!(stored.deleted);
+        let messages = store
+            .fetch_messages(FetchQuery {
+                topic,
+                origin,
+                from_head_id: HeadId(1),
+                limit: 10,
+            })
+            .await
+            .expect("fetch");
+        assert!(messages[0].deleted);
+    }
+
+    #[tokio::test]
+    async fn tombstone_range_with_marker_updates_and_appends_control_message() {
+        let store = SqliteStore::open_in_memory().expect("open store");
+        let origin = node();
+        let topic = topic();
+        store
+            .append_message(NewMessage::new(
+                topic.clone(),
+                origin.clone(),
+                b"one".to_vec(),
+                BTreeMap::new(),
+            ))
+            .await
+            .expect("append");
+
+        let delete_topic = Topic::new("$msgbus.delete").expect("delete topic");
+        let (deleted, marker) = store
+            .tombstone_range_with_marker(
+                &topic,
+                &origin,
+                HeadId(1),
+                HeadId(1),
+                &delete_topic,
+                &origin,
+            )
+            .await
+            .expect("delete with marker");
+
+        assert_eq!(deleted, 1);
+        assert_eq!(marker.topic, delete_topic);
+        let tombstone: TombstoneRange =
+            serde_json::from_slice(&marker.payload).expect("tombstone payload");
+        assert_eq!(tombstone.topic, topic);
+        let messages = store
+            .fetch_messages(FetchQuery {
+                topic,
+                origin,
+                from_head_id: HeadId(1),
+                limit: 10,
+            })
+            .await
+            .expect("fetch");
+        assert!(messages[0].deleted);
+    }
+
+    #[tokio::test]
+    async fn records_peer_sync_state_and_failure_counts() {
+        let store = SqliteStore::open_in_memory().expect("open store");
+        let origin = node();
+        let topic = topic();
+        let base = PeerSyncState {
+            peer: "http://peer".to_string(),
+            topic: Some(topic),
+            origin: Some(origin),
+            local_head: HeadId(1),
+            remote_head: HeadId(2),
+            last_synced_head: HeadId(1),
+            last_attempt_at_ms: 10,
+            last_success_at_ms: 0,
+            consecutive_failures: 0,
+            last_error: Some("temporary failure".to_string()),
+        };
+
+        store
+            .record_peer_sync_state(base.clone())
+            .await
+            .expect("record first failure");
+        store
+            .record_peer_sync_state(base)
+            .await
+            .expect("record second failure");
+        let states = store.list_peer_sync_states().await.expect("list states");
+        assert_eq!(states[0].consecutive_failures, 2);
+
+        let mut success = states[0].clone();
+        success.last_error = None;
+        success.last_success_at_ms = 20;
+        store
+            .record_peer_sync_state(success)
+            .await
+            .expect("record success");
+        let states = store.list_peer_sync_states().await.expect("list states");
+        assert_eq!(states[0].consecutive_failures, 0);
+        assert!(states[0].last_error.is_none());
     }
 
     #[tokio::test]
