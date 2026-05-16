@@ -1,0 +1,6 @@
+/target/
+*.redb
+*.db
+*.log
+/gen/
+

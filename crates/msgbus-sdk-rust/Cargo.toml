@@ -1,0 +1,17 @@
+[package]
+name = "msgbus-sdk-rust"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+msgbus-proto = { path = "../msgbus-proto" }
+thiserror.workspace = true
+tonic.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

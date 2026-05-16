@@ -1,0 +1,26 @@
+[package]
+name = "msgbus-server"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "msgbusd"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+futures-core.workspace = true
+msgbus-core = { path = "../msgbus-core" }
+msgbus-proto = { path = "../msgbus-proto" }
+msgbus-store-redb = { path = "../msgbus-store-redb" }
+msgbus-store-sqlite = { path = "../msgbus-store-sqlite" }
+tokio.workspace = true
+tokio-stream.workspace = true
+tonic.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

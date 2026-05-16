@@ -1,0 +1,23 @@
+[package]
+name = "msgbus-store-redb"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+base64.workspace = true
+msgbus-core = { path = "../msgbus-core" }
+redb.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3.23.0"
+tokio.workspace = true
+
+[lints]
+workspace = true
+

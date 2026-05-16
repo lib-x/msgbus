@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package msgbus.v1;
+
+message NodeId {
+  string tenant_id = 1;
+  string bl_name = 2;
+  string device_id = 3;
+}
+
+message MessageEnvelope {
+  string id = 1;
+  string topic = 2;
+  NodeId origin = 3;
+  uint64 head_id = 4;
+  bytes payload = 5;
+  map<string, string> headers = 6;
+  uint64 created_at_ms = 7;
+  bool deleted = 8;
+}
+
+message PublishRequest {
+  string topic = 1;
+  NodeId origin = 2;
+  bytes payload = 3;
+  map<string, string> headers = 4;
+}
+
+message PublishResponse {
+  MessageEnvelope message = 1;
+}
+
+message FetchRequest {
+  string topic = 1;
+  NodeId origin = 2;
+  uint64 from_head_id = 3;
+  uint32 limit = 4;
+}
+
+message FetchResponse {
+  MessageEnvelope message = 1;
+}
+
+message SubscribeRequest {
+  string topic = 1;
+  NodeId origin = 2;
+  uint64 from_head_id = 3;
+  uint32 replay_limit = 4;
+}
+
+message SubscribeResponse {
+  MessageEnvelope message = 1;
+}
+
+message GetHeadRequest {
+  string topic = 1;
+  NodeId origin = 2;
+}
+
+message GetHeadResponse {
+  uint64 head_id = 1;
+  bool found = 2;
+}
+
+message DeleteRangeRequest {
+  string topic = 1;
+  NodeId origin = 2;
+  uint64 from_head_id = 3;
+  uint64 to_head_id = 4;
+}
+
+message DeleteRangeResponse {
+  uint64 deleted_count = 1;
+}
+
+message FifoMessage {
+  string id = 1;
+  string queue = 2;
+  string topic = 3;
+  NodeId source = 4;
+  NodeId target = 5;
+  bytes payload = 6;
+  map<string, string> headers = 7;
+  uint64 created_at_ms = 8;
+  uint64 sequence = 9;
+  uint32 attempts = 10;
+}
+
+message EnqueueFifoRequest {
+  string queue = 1;
+  string topic = 2;
+  NodeId source = 3;
+  NodeId target = 4;
+  bytes payload = 5;
+  map<string, string> headers = 6;
+}
+
+message EnqueueFifoResponse {
+  FifoMessage message = 1;
+}
+
+message PeekFifoRequest {
+  string queue = 1;
+}
+
+message PeekFifoResponse {
+  FifoMessage message = 1;
+}
+
+message AckFifoRequest {
+  string queue = 1;
+  string message_id = 2;
+}
+
+message AckFifoResponse {
+  bool accepted = 1;
+}
+
+message RejectFifoRequest {
+  string queue = 1;
+  string message_id = 2;
+}
+
+message RejectFifoResponse {
+  bool accepted = 1;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  NodeId node = 2;
+}
+
+service MsgbusService {
+  rpc Publish(PublishRequest) returns (PublishResponse);
+  rpc Fetch(FetchRequest) returns (stream FetchResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+  rpc GetHead(GetHeadRequest) returns (GetHeadResponse);
+  rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse);
+  rpc EnqueueFifo(EnqueueFifoRequest) returns (EnqueueFifoResponse);
+  rpc PeekFifo(PeekFifoRequest) returns (PeekFifoResponse);
+  rpc AckFifo(AckFifoRequest) returns (AckFifoResponse);
+  rpc RejectFifo(RejectFifoRequest) returns (RejectFifoResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
