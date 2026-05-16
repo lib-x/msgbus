@@ -1,14 +1,14 @@
 use futures_core::Stream;
 use msgbus_core::{
     FetchQuery, HeadId, MessageId, MsgbusError, MsgbusStore, NewFifoMessage, NewMessage, NodeId,
-    QueueName, StoredFifoMessage, StoredMessage, Topic,
+    QueueName, StoredFifoMessage, StoredMessage, TombstoneRange, Topic, TopicHead, now_ms,
 };
 use msgbus_proto::msgbus::v1::{
     AckFifoRequest, AckFifoResponse, DeleteRangeRequest, DeleteRangeResponse, EnqueueFifoRequest,
     EnqueueFifoResponse, FetchRequest, FetchResponse, FifoMessage, GetHeadRequest, GetHeadResponse,
-    HealthRequest, HealthResponse, MessageEnvelope, PeekFifoRequest, PeekFifoResponse,
-    PublishRequest, PublishResponse, RejectFifoRequest, RejectFifoResponse, SubscribeRequest,
-    SubscribeResponse,
+    HealthRequest, HealthResponse, ListHeadsRequest, ListHeadsResponse, MessageEnvelope,
+    PeekFifoRequest, PeekFifoResponse, PublishRequest, PublishResponse, RejectFifoRequest,
+    RejectFifoResponse, SubscribeRequest, SubscribeResponse,
     msgbus_service_server::{MsgbusService, MsgbusServiceServer},
 };
 use std::collections::BTreeMap;
@@ -19,7 +19,10 @@ use tokio_stream::StreamExt;
 use tokio_stream::wrappers::{BroadcastStream, ReceiverStream};
 use tonic::{Request, Response, Status};
 
+pub mod sync;
+
 const DEFAULT_REPLAY_LIMIT: u32 = 100;
+pub(crate) const DELETE_TOPIC: &str = "$msgbus.delete";
 
 #[derive(Clone)]
 pub struct MsgbusGrpcService<S> {
@@ -43,6 +46,10 @@ where
 
     pub fn into_server(self) -> MsgbusServiceServer<Self> {
         MsgbusServiceServer::new(self)
+    }
+
+    pub fn published_sender(&self) -> broadcast::Sender<StoredMessage> {
+        self.published.clone()
     }
 
     fn request_origin(
@@ -213,6 +220,21 @@ where
         }))
     }
 
+    async fn list_heads(
+        &self,
+        _request: Request<ListHeadsRequest>,
+    ) -> Result<Response<ListHeadsResponse>, Status> {
+        let heads = self
+            .store
+            .list_heads()
+            .await
+            .map_err(status_from_error)?
+            .into_iter()
+            .map(proto_topic_head)
+            .collect();
+        Ok(Response::new(ListHeadsResponse { heads }))
+    }
+
     async fn delete_range(
         &self,
         request: Request<DeleteRangeRequest>,
@@ -220,16 +242,33 @@ where
         let request = request.into_inner();
         let topic = Topic::new(request.topic).map_err(status_from_error)?;
         let origin = self.request_origin(request.origin)?;
+        let from = HeadId(request.from_head_id);
+        let to = HeadId(request.to_head_id);
         let deleted_count = self
             .store
-            .tombstone_range(
-                &topic,
-                &origin,
-                HeadId(request.from_head_id),
-                HeadId(request.to_head_id),
-            )
+            .tombstone_range(&topic, &origin, from, to)
             .await
             .map_err(status_from_error)?;
+        let tombstone = TombstoneRange {
+            topic,
+            origin,
+            from_head_id: from,
+            to_head_id: to,
+            created_at_ms: now_ms(),
+        };
+        let payload = serde_json::to_vec(&tombstone)
+            .map_err(|err| Status::internal(format!("failed to encode tombstone: {err}")))?;
+        let control = self
+            .store
+            .append_message(NewMessage::new(
+                Topic::new(DELETE_TOPIC).map_err(status_from_error)?,
+                self.node.clone(),
+                payload,
+                BTreeMap::new(),
+            ))
+            .await
+            .map_err(status_from_error)?;
+        let _ = self.published.send(control);
         Ok(Response::new(DeleteRangeResponse { deleted_count }))
     }
 
@@ -360,6 +399,76 @@ fn proto_message(value: StoredMessage) -> MessageEnvelope {
         created_at_ms: value.created_at_ms,
         deleted: value.deleted,
     }
+}
+
+pub(crate) fn core_message(value: MessageEnvelope) -> Result<StoredMessage, Status> {
+    let origin = value
+        .origin
+        .map(core_node)
+        .transpose()?
+        .ok_or_else(|| Status::invalid_argument("message origin is required"))?;
+    if value.head_id == 0 {
+        return Err(Status::invalid_argument(
+            "message head_id must be greater than zero",
+        ));
+    }
+    Ok(StoredMessage {
+        id: MessageId::from_string(value.id).map_err(status_from_error)?,
+        topic: Topic::new(value.topic).map_err(status_from_error)?,
+        origin,
+        head_id: HeadId(value.head_id),
+        payload: value.payload,
+        headers: value.headers.into_iter().collect(),
+        created_at_ms: value.created_at_ms,
+        deleted: value.deleted,
+    })
+}
+
+fn proto_topic_head(value: TopicHead) -> msgbus_proto::msgbus::v1::TopicHead {
+    msgbus_proto::msgbus::v1::TopicHead {
+        topic: value.topic.into_string(),
+        origin: Some(proto_node(value.origin)),
+        head_id: value.head_id.0,
+    }
+}
+
+pub(crate) fn core_topic_head(
+    value: msgbus_proto::msgbus::v1::TopicHead,
+) -> Result<TopicHead, Status> {
+    let origin = value
+        .origin
+        .map(core_node)
+        .transpose()?
+        .ok_or_else(|| Status::invalid_argument("topic head origin is required"))?;
+    Ok(TopicHead {
+        topic: Topic::new(value.topic).map_err(status_from_error)?,
+        origin,
+        head_id: HeadId(value.head_id),
+    })
+}
+
+pub(crate) async fn apply_control_message<S>(
+    store: &S,
+    message: &StoredMessage,
+) -> Result<(), Status>
+where
+    S: MsgbusStore,
+{
+    if message.topic.as_str() != DELETE_TOPIC || message.deleted {
+        return Ok(());
+    }
+    let tombstone: TombstoneRange = serde_json::from_slice(&message.payload)
+        .map_err(|err| Status::invalid_argument(format!("invalid tombstone payload: {err}")))?;
+    store
+        .tombstone_range(
+            &tombstone.topic,
+            &tombstone.origin,
+            tombstone.from_head_id,
+            tombstone.to_head_id,
+        )
+        .await
+        .map_err(status_from_error)?;
+    Ok(())
 }
 
 fn proto_fifo(value: StoredFifoMessage) -> FifoMessage {

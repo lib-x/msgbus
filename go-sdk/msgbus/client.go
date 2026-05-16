@@ -13,6 +13,7 @@ import (
 type NodeID = msgbusv1.NodeId
 type Message = msgbusv1.MessageEnvelope
 type FifoMessage = msgbusv1.FifoMessage
+type TopicHead = msgbusv1.TopicHead
 
 type Client struct {
 	conn          *grpc.ClientConn
@@ -124,6 +125,14 @@ func (c *Client) GetHead(ctx context.Context, topic string, origin *msgbusv1.Nod
 		Topic:  topic,
 		Origin: origin,
 	})
+}
+
+func (c *Client) ListHeads(ctx context.Context) ([]*msgbusv1.TopicHead, error) {
+	resp, err := c.rpc.ListHeads(ctx, &msgbusv1.ListHeadsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Heads, nil
 }
 
 func (c *Client) DeleteRange(ctx context.Context, topic string, origin *msgbusv1.NodeId, fromHeadID uint64, toHeadID uint64) (uint64, error) {

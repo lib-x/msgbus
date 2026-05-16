@@ -23,6 +23,7 @@ const (
 	MsgbusService_Fetch_FullMethodName       = "/msgbus.v1.MsgbusService/Fetch"
 	MsgbusService_Subscribe_FullMethodName   = "/msgbus.v1.MsgbusService/Subscribe"
 	MsgbusService_GetHead_FullMethodName     = "/msgbus.v1.MsgbusService/GetHead"
+	MsgbusService_ListHeads_FullMethodName   = "/msgbus.v1.MsgbusService/ListHeads"
 	MsgbusService_DeleteRange_FullMethodName = "/msgbus.v1.MsgbusService/DeleteRange"
 	MsgbusService_EnqueueFifo_FullMethodName = "/msgbus.v1.MsgbusService/EnqueueFifo"
 	MsgbusService_PeekFifo_FullMethodName    = "/msgbus.v1.MsgbusService/PeekFifo"
@@ -39,6 +40,7 @@ type MsgbusServiceClient interface {
 	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FetchResponse], error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SubscribeResponse], error)
 	GetHead(ctx context.Context, in *GetHeadRequest, opts ...grpc.CallOption) (*GetHeadResponse, error)
+	ListHeads(ctx context.Context, in *ListHeadsRequest, opts ...grpc.CallOption) (*ListHeadsResponse, error)
 	DeleteRange(ctx context.Context, in *DeleteRangeRequest, opts ...grpc.CallOption) (*DeleteRangeResponse, error)
 	EnqueueFifo(ctx context.Context, in *EnqueueFifoRequest, opts ...grpc.CallOption) (*EnqueueFifoResponse, error)
 	PeekFifo(ctx context.Context, in *PeekFifoRequest, opts ...grpc.CallOption) (*PeekFifoResponse, error)
@@ -113,6 +115,16 @@ func (c *msgbusServiceClient) GetHead(ctx context.Context, in *GetHeadRequest, o
 	return out, nil
 }
 
+func (c *msgbusServiceClient) ListHeads(ctx context.Context, in *ListHeadsRequest, opts ...grpc.CallOption) (*ListHeadsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListHeadsResponse)
+	err := c.cc.Invoke(ctx, MsgbusService_ListHeads_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgbusServiceClient) DeleteRange(ctx context.Context, in *DeleteRangeRequest, opts ...grpc.CallOption) (*DeleteRangeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteRangeResponse)
@@ -181,6 +193,7 @@ type MsgbusServiceServer interface {
 	Fetch(*FetchRequest, grpc.ServerStreamingServer[FetchResponse]) error
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[SubscribeResponse]) error
 	GetHead(context.Context, *GetHeadRequest) (*GetHeadResponse, error)
+	ListHeads(context.Context, *ListHeadsRequest) (*ListHeadsResponse, error)
 	DeleteRange(context.Context, *DeleteRangeRequest) (*DeleteRangeResponse, error)
 	EnqueueFifo(context.Context, *EnqueueFifoRequest) (*EnqueueFifoResponse, error)
 	PeekFifo(context.Context, *PeekFifoRequest) (*PeekFifoResponse, error)
@@ -207,6 +220,9 @@ func (UnimplementedMsgbusServiceServer) Subscribe(*SubscribeRequest, grpc.Server
 }
 func (UnimplementedMsgbusServiceServer) GetHead(context.Context, *GetHeadRequest) (*GetHeadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetHead not implemented")
+}
+func (UnimplementedMsgbusServiceServer) ListHeads(context.Context, *ListHeadsRequest) (*ListHeadsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListHeads not implemented")
 }
 func (UnimplementedMsgbusServiceServer) DeleteRange(context.Context, *DeleteRangeRequest) (*DeleteRangeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRange not implemented")
@@ -300,6 +316,24 @@ func _MsgbusService_GetHead_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgbusServiceServer).GetHead(ctx, req.(*GetHeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MsgbusService_ListHeads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListHeadsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgbusServiceServer).ListHeads(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MsgbusService_ListHeads_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgbusServiceServer).ListHeads(ctx, req.(*ListHeadsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -426,6 +460,10 @@ var MsgbusService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetHead",
 			Handler:    _MsgbusService_GetHead_Handler,
+		},
+		{
+			MethodName: "ListHeads",
+			Handler:    _MsgbusService_ListHeads_Handler,
 		},
 		{
 			MethodName: "DeleteRange",

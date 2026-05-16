@@ -1,9 +1,10 @@
 use msgbus_proto::msgbus::v1::{
     AckFifoRequest, DeleteRangeRequest, EnqueueFifoRequest, FetchRequest, GetHeadRequest,
-    HealthRequest, PeekFifoRequest, PublishRequest, RejectFifoRequest, SubscribeRequest,
+    HealthRequest, ListHeadsRequest, PeekFifoRequest, PublishRequest, RejectFifoRequest,
+    SubscribeRequest,
 };
 pub use msgbus_proto::msgbus::v1::{
-    FifoMessage, GetHeadResponse, MessageEnvelope, NodeId, SubscribeResponse,
+    FifoMessage, GetHeadResponse, MessageEnvelope, NodeId, SubscribeResponse, TopicHead,
     msgbus_service_client::MsgbusServiceClient,
 };
 use std::collections::HashMap;
@@ -131,6 +132,15 @@ impl MsgbusClient {
             })
             .await?
             .into_inner())
+    }
+
+    pub async fn list_heads(&mut self) -> Result<Vec<TopicHead>> {
+        Ok(self
+            .client
+            .list_heads(ListHeadsRequest {})
+            .await?
+            .into_inner()
+            .heads)
     }
 
     pub async fn delete_range(

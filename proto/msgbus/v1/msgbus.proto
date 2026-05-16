@@ -62,6 +62,18 @@ message GetHeadResponse {
   bool found = 2;
 }
 
+message TopicHead {
+  string topic = 1;
+  NodeId origin = 2;
+  uint64 head_id = 3;
+}
+
+message ListHeadsRequest {}
+
+message ListHeadsResponse {
+  repeated TopicHead heads = 1;
+}
+
 message DeleteRangeRequest {
   string topic = 1;
   NodeId origin = 2;
@@ -137,6 +149,7 @@ service MsgbusService {
   rpc Fetch(FetchRequest) returns (stream FetchResponse);
   rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
   rpc GetHead(GetHeadRequest) returns (GetHeadResponse);
+  rpc ListHeads(ListHeadsRequest) returns (ListHeadsResponse);
   rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse);
   rpc EnqueueFifo(EnqueueFifoRequest) returns (EnqueueFifoResponse);
   rpc PeekFifo(PeekFifoRequest) returns (PeekFifoResponse);

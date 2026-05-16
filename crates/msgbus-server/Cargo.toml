@@ -16,6 +16,7 @@ msgbus-core = { path = "../msgbus-core" }
 msgbus-proto = { path = "../msgbus-proto" }
 msgbus-store-redb = { path = "../msgbus-store-redb" }
 msgbus-store-sqlite = { path = "../msgbus-store-sqlite" }
+serde_json.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true

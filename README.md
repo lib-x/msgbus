@@ -1,8 +1,10 @@
 # msgbus
 
-Rust rewrite prototype for the original C++ msgbus semantics.
+`msgbus` is a local-first message bus for applications that need durable publish/subscribe, replay, FIFO delivery, and node-to-node synchronization.
 
-This version keeps the message model explicit and makes storage replaceable through a Rust trait. The first implementation uses `redb`, a pure Rust embedded transactional key-value store. The network API is gRPC/Protobuf, and proto files are managed with `buf`.
+Each client or device runs a local `msgbusd` daemon. Applications use the Go or Rust SDK to talk to the local daemon over gRPC. The daemon persists messages to a local database, serves local subscriptions, and can synchronize missing message ranges from configured peers.
+
+The message model is explicit: every `topic + origin node` is an ordered append log with a monotonic `head_id`. Storage is replaceable through the Rust `MsgbusStore` trait. Current storage backends are `redb` and SQLite. The public network API uses gRPC/Protobuf, and proto files are managed with `buf`.
 
 ## Deployment Model
 
@@ -15,7 +17,7 @@ Application
   -> local database on the client/device
 ```
 
-Every client or device should run its own `msgbusd` and keep its own database. SDKs should normally connect to the local daemon. Later daemon-to-daemon sync will replicate missing ranges between nodes.
+Every client or device should run its own `msgbusd` and keep its own database. SDKs should normally connect to the local daemon. Daemon-to-daemon sync compares peer heads and replicates missing ranges between nodes.
 
 This keeps storage state in one implementation instead of duplicating database/state-machine logic inside every Go and Rust SDK.
 
@@ -38,6 +40,7 @@ proto/msgbus/v1           canonical protobuf contract
 - Fetch range from a `head_id`
 - Subscribe with replay then live stream
 - Get topic head
+- Peer head listing and daemon-to-daemon range sync
 - Delete range as tombstone markers while preserving `head_id`
 - FIFO enqueue / peek / ack / reject, with front-message ack enforcement
 - Storage abstraction through `MsgbusStore`
@@ -45,7 +48,7 @@ proto/msgbus/v1           canonical protobuf contract
 - `redb` and SQLite storage backends
 - Rust SDK and Go SDK over the same gRPC API
 
-Not implemented in this first version: custom TCP mesh, node discovery, dup/restore, cross-node sync repair.
+Not implemented in this first version: automatic node discovery, auth/TLS policy, dup/restore, and advanced FIFO peer routing.
 
 ## Build And Test
 
@@ -64,6 +67,8 @@ GOSUMDB=off go install github.com/bufbuild/buf/cmd/buf@latest
 ```
 
 ## Run
+
+Single local daemon:
 
 ```bash
 cargo run -p msgbus-server --bin msgbusd -- \
@@ -86,6 +91,32 @@ cargo run -p msgbus-server --bin msgbusd -- \
   --bl-name default \
   --device-id device
 ```
+
+Two local daemons with explicit peer sync:
+
+```bash
+cargo run -p msgbus-server --bin msgbusd -- \
+  --listen 127.0.0.1:50051 \
+  --data ./node-a.redb \
+  --storage redb \
+  --tenant-id tenant \
+  --bl-name default \
+  --device-id node-a \
+  --peer http://127.0.0.1:50052
+```
+
+```bash
+cargo run -p msgbus-server --bin msgbusd -- \
+  --listen 127.0.0.1:50052 \
+  --data ./node-b.redb \
+  --storage redb \
+  --tenant-id tenant \
+  --bl-name default \
+  --device-id node-b \
+  --peer http://127.0.0.1:50051
+```
+
+Peer sync periodically calls `ListHeads` on each configured peer, compares local heads, fetches missing ranges, and writes replicated messages idempotently into the local database.
 
 In another shell:
 

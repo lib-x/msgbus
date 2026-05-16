@@ -3,9 +3,11 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use msgbus_core::{
     FetchQuery, HeadId, MessageId, MsgbusError, MsgbusStore, NewFifoMessage, NewMessage, NodeId,
-    QueueName, Result, StoredFifoMessage, StoredMessage, TombstoneRange, Topic, now_ms,
+    QueueName, ReplicateResult, Result, StoredFifoMessage, StoredMessage, TombstoneRange, Topic,
+    TopicHead, now_ms,
 };
-use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition, WriteTransaction};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -58,7 +60,7 @@ impl MsgbusStore for RedbStore {
             HeadId(next)
         };
 
-        let stored = StoredMessage {
+        let mut stored = StoredMessage {
             id: message.id,
             topic: message.topic,
             origin: message.origin,
@@ -68,6 +70,7 @@ impl MsgbusStore for RedbStore {
             created_at_ms: now_ms(),
             deleted: false,
         };
+        apply_tombstone_markers(&txn, &mut stored)?;
 
         let key = message_key(&stored.topic, &stored.origin, stored.head_id);
         let encoded = encode(&stored)?;
@@ -110,6 +113,99 @@ impl MsgbusStore for RedbStore {
         let key = head_key(topic, origin);
         let value = heads.get(key.as_str()).map_err(storage_err)?;
         Ok(value.map(|value| HeadId(value.value())))
+    }
+
+    async fn list_heads(&self) -> Result<Vec<TopicHead>> {
+        let txn = self.db.begin_read().map_err(storage_err)?;
+        let messages = txn.open_table(MESSAGES).map_err(storage_err)?;
+        let mut heads: BTreeMap<(Topic, NodeId), HeadId> = BTreeMap::new();
+
+        for item in messages.range(""..).map_err(storage_err)? {
+            let (_, value) = item.map_err(storage_err)?;
+            let message: StoredMessage = decode(value.value())?;
+            let key = (message.topic, message.origin);
+            let entry = heads.entry(key).or_insert(HeadId(0));
+            if message.head_id > *entry {
+                *entry = message.head_id;
+            }
+        }
+
+        Ok(heads
+            .into_iter()
+            .map(|((topic, origin), head_id)| TopicHead {
+                topic,
+                origin,
+                head_id,
+            })
+            .collect())
+    }
+
+    async fn put_replicated_message(&self, mut message: StoredMessage) -> Result<ReplicateResult> {
+        if message.head_id.0 == 0 {
+            return Err(MsgbusError::InvalidArgument(
+                "replicated message head_id must be greater than zero".to_string(),
+            ));
+        }
+
+        let txn = self.db.begin_write().map_err(storage_err)?;
+        apply_tombstone_markers(&txn, &mut message)?;
+        let message_key = message_key(&message.topic, &message.origin, message.head_id);
+        let current_head = current_head_in_txn(&txn, &message.topic, &message.origin)?;
+        {
+            let mut messages = txn.open_table(MESSAGES).map_err(storage_err)?;
+            let existing = messages
+                .get(message_key.as_str())
+                .map_err(storage_err)?
+                .map(|value| decode::<StoredMessage>(value.value()))
+                .transpose()?;
+            if let Some(existing) = existing {
+                if existing == message {
+                    return Ok(ReplicateResult::AlreadyPresent);
+                }
+                if same_message_except_deleted(&existing, &message) && message.deleted {
+                    let encoded = encode(&message)?;
+                    messages
+                        .insert(message_key.as_str(), encoded.as_slice())
+                        .map_err(storage_err)?;
+                } else {
+                    return Err(MsgbusError::Conflict(format!(
+                        "message conflict at topic={} origin={} head_id={}",
+                        message.topic.as_str(),
+                        message.origin.key(),
+                        message.head_id.0
+                    )));
+                }
+            } else if message.head_id.0 > current_head.saturating_add(1) {
+                return Err(MsgbusError::InvalidArgument(format!(
+                    "replicated message would create a gap at topic={} origin={} local_head={} incoming_head={}",
+                    message.topic.as_str(),
+                    message.origin.key(),
+                    current_head,
+                    message.head_id.0
+                )));
+            } else {
+                let encoded = encode(&message)?;
+                messages
+                    .insert(message_key.as_str(), encoded.as_slice())
+                    .map_err(storage_err)?;
+            }
+        }
+        {
+            let mut heads = txn.open_table(HEADS).map_err(storage_err)?;
+            let head_key = head_key(&message.topic, &message.origin);
+            let current = heads
+                .get(head_key.as_str())
+                .map_err(storage_err)?
+                .map(|value| value.value())
+                .unwrap_or(0);
+            if current < message.head_id.0 {
+                heads
+                    .insert(head_key.as_str(), message.head_id.0)
+                    .map_err(storage_err)?;
+            }
+        }
+        txn.commit().map_err(storage_err)?;
+        Ok(ReplicateResult::Inserted)
     }
 
     async fn tombstone_range(
@@ -340,6 +436,46 @@ fn fifo_prefix(queue: &QueueName) -> String {
 
 fn fifo_message_key(queue: &QueueName, sequence: u64) -> String {
     format!("{}{:020}", fifo_prefix(queue), sequence)
+}
+
+fn current_head_in_txn(txn: &WriteTransaction, topic: &Topic, origin: &NodeId) -> Result<u64> {
+    let heads = txn.open_table(HEADS).map_err(storage_err)?;
+    let key = head_key(topic, origin);
+    Ok(heads
+        .get(key.as_str())
+        .map_err(storage_err)?
+        .map(|value| value.value())
+        .unwrap_or(0))
+}
+
+fn apply_tombstone_markers(txn: &WriteTransaction, message: &mut StoredMessage) -> Result<()> {
+    if message.deleted {
+        return Ok(());
+    }
+    let tombstones = txn.open_table(TOMBSTONES).map_err(storage_err)?;
+    for item in tombstones.range(""..).map_err(storage_err)? {
+        let (_, value) = item.map_err(storage_err)?;
+        let tombstone: TombstoneRange = decode(value.value())?;
+        if tombstone.topic == message.topic
+            && tombstone.origin == message.origin
+            && tombstone.from_head_id <= message.head_id
+            && message.head_id <= tombstone.to_head_id
+        {
+            message.deleted = true;
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn same_message_except_deleted(left: &StoredMessage, right: &StoredMessage) -> bool {
+    left.id == right.id
+        && left.topic == right.topic
+        && left.origin == right.origin
+        && left.head_id == right.head_id
+        && left.payload == right.payload
+        && left.headers == right.headers
+        && left.created_at_ms == right.created_at_ms
 }
 
 #[cfg(test)]

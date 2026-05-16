@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use msgbus_core::{
     FetchQuery, HeadId, MessageId, MsgbusError, MsgbusStore, NewFifoMessage, NewMessage, NodeId,
-    QueueName, Result, StoredFifoMessage, StoredMessage, TombstoneRange, Topic, now_ms,
+    QueueName, ReplicateResult, Result, StoredFifoMessage, StoredMessage, TombstoneRange, Topic,
+    TopicHead, now_ms,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
@@ -64,7 +65,7 @@ impl MsgbusStore for SqliteStore {
         )
         .map_err(storage_err)?;
 
-        let stored = StoredMessage {
+        let mut stored = StoredMessage {
             id: message.id,
             topic: message.topic,
             origin: message.origin,
@@ -74,6 +75,7 @@ impl MsgbusStore for SqliteStore {
             created_at_ms: now_ms(),
             deleted: false,
         };
+        apply_tombstone_markers(&tx, &mut stored)?;
 
         tx.execute(
             "INSERT INTO messages(
@@ -139,6 +141,148 @@ impl MsgbusStore for SqliteStore {
             .optional()
             .map_err(storage_err)?;
         Ok(head.map(i64_to_u64).transpose()?.map(HeadId))
+    }
+
+    async fn list_heads(&self) -> Result<Vec<TopicHead>> {
+        let conn = self.connection()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT h.topic, m.origin_json, h.head_id
+                 FROM heads h
+                 JOIN messages m
+                   ON m.topic = h.topic
+                  AND m.origin_key = h.origin_key
+                  AND m.head_id = h.head_id
+                 ORDER BY h.topic ASC, h.origin_key ASC",
+            )
+            .map_err(storage_err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                let topic: String = row.get(0)?;
+                let origin_json: String = row.get(1)?;
+                let head_id = i64_to_u64(row.get::<_, i64>(2)?).map_err(sql_from_msgbus)?;
+                Ok(TopicHead {
+                    topic: Topic::new(topic).map_err(sql_from_msgbus)?,
+                    origin: decode_json(&origin_json).map_err(sql_from_msgbus)?,
+                    head_id: HeadId(head_id),
+                })
+            })
+            .map_err(storage_err)?;
+
+        let mut heads = Vec::new();
+        for row in rows {
+            heads.push(row.map_err(storage_err)?);
+        }
+        Ok(heads)
+    }
+
+    async fn put_replicated_message(&self, mut message: StoredMessage) -> Result<ReplicateResult> {
+        if message.head_id.0 == 0 {
+            return Err(MsgbusError::InvalidArgument(
+                "replicated message head_id must be greater than zero".to_string(),
+            ));
+        }
+
+        let mut conn = self.connection()?;
+        let tx = conn.transaction().map_err(storage_err)?;
+        apply_tombstone_markers(&tx, &mut message)?;
+        let existing = tx
+            .query_row(
+                "SELECT id, topic, origin_json, head_id, payload, headers_json, created_at_ms, deleted
+                 FROM messages
+                 WHERE topic = ?1 AND origin_key = ?2 AND head_id = ?3",
+                params![
+                    message.topic.as_str(),
+                    message.origin.key(),
+                    u64_to_i64(message.head_id.0)?
+                ],
+                row_to_message,
+            )
+            .optional()
+            .map_err(storage_err)?;
+
+        if let Some(existing) = existing {
+            if existing == message {
+                return Ok(ReplicateResult::AlreadyPresent);
+            }
+            if same_message_except_deleted(&existing, &message) && message.deleted {
+                tx.execute(
+                    "UPDATE messages
+                     SET deleted = TRUE
+                     WHERE topic = ?1 AND origin_key = ?2 AND head_id = ?3",
+                    params![
+                        message.topic.as_str(),
+                        message.origin.key(),
+                        u64_to_i64(message.head_id.0)?
+                    ],
+                )
+                .map_err(storage_err)?;
+                tx.commit().map_err(storage_err)?;
+                return Ok(ReplicateResult::Inserted);
+            }
+            return Err(MsgbusError::Conflict(format!(
+                "message conflict at topic={} origin={} head_id={}",
+                message.topic.as_str(),
+                message.origin.key(),
+                message.head_id.0
+            )));
+        }
+
+        let current = tx
+            .query_row(
+                "SELECT head_id FROM heads WHERE topic = ?1 AND origin_key = ?2",
+                params![message.topic.as_str(), message.origin.key()],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(storage_err)?
+            .map(i64_to_u64)
+            .transpose()?
+            .unwrap_or(0);
+        if message.head_id.0 > current.saturating_add(1) {
+            return Err(MsgbusError::InvalidArgument(format!(
+                "replicated message would create a gap at topic={} origin={} local_head={} incoming_head={}",
+                message.topic.as_str(),
+                message.origin.key(),
+                current,
+                message.head_id.0
+            )));
+        }
+
+        tx.execute(
+            "INSERT INTO messages(
+                topic, origin_key, origin_json, head_id, id, payload, headers_json, created_at_ms, deleted
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                message.topic.as_str(),
+                message.origin.key(),
+                encode_json(&message.origin)?,
+                u64_to_i64(message.head_id.0)?,
+                message.id.as_str(),
+                message.payload,
+                encode_json(&message.headers)?,
+                u64_to_i64(message.created_at_ms)?,
+                message.deleted,
+            ],
+        )
+        .map_err(storage_err)?;
+
+        if current < message.head_id.0 {
+            tx.execute(
+                "INSERT INTO heads(topic, origin_key, head_id)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT(topic, origin_key) DO UPDATE SET head_id = excluded.head_id",
+                params![
+                    message.topic.as_str(),
+                    message.origin.key(),
+                    u64_to_i64(message.head_id.0)?
+                ],
+            )
+            .map_err(storage_err)?;
+        }
+
+        tx.commit().map_err(storage_err)?;
+        Ok(ReplicateResult::Inserted)
     }
 
     async fn tombstone_range(
@@ -467,6 +611,47 @@ fn encode_json<T: serde::Serialize>(value: &T) -> Result<String> {
 
 fn decode_json<T: serde::de::DeserializeOwned>(value: &str) -> Result<T> {
     serde_json::from_str(value).map_err(|err| MsgbusError::Serialization(err.to_string()))
+}
+
+fn apply_tombstone_markers(
+    tx: &rusqlite::Transaction<'_>,
+    message: &mut StoredMessage,
+) -> Result<()> {
+    if message.deleted {
+        return Ok(());
+    }
+    let applies = tx
+        .query_row(
+            "SELECT 1 FROM tombstones
+             WHERE topic = ?1
+               AND origin_key = ?2
+               AND from_head_id <= ?3
+               AND to_head_id >= ?3
+             LIMIT 1",
+            params![
+                message.topic.as_str(),
+                message.origin.key(),
+                u64_to_i64(message.head_id.0)?
+            ],
+            |_| Ok(()),
+        )
+        .optional()
+        .map_err(storage_err)?
+        .is_some();
+    if applies {
+        message.deleted = true;
+    }
+    Ok(())
+}
+
+fn same_message_except_deleted(left: &StoredMessage, right: &StoredMessage) -> bool {
+    left.id == right.id
+        && left.topic == right.topic
+        && left.origin == right.origin
+        && left.head_id == right.head_id
+        && left.payload == right.payload
+        && left.headers == right.headers
+        && left.created_at_ms == right.created_at_ms
 }
 
 fn u64_to_i64(value: u64) -> Result<i64> {

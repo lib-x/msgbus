@@ -138,7 +138,7 @@ impl NewMessage {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoredMessage {
     pub id: MessageId,
     pub topic: Topic,
@@ -148,6 +148,19 @@ pub struct StoredMessage {
     pub headers: BTreeMap<String, String>,
     pub created_at_ms: u64,
     pub deleted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TopicHead {
+    pub topic: Topic,
+    pub origin: NodeId,
+    pub head_id: HeadId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReplicateResult {
+    Inserted,
+    AlreadyPresent,
 }
 
 #[derive(Clone, Debug)]
@@ -235,6 +248,10 @@ pub trait MsgbusStore: Send + Sync + 'static {
     async fn fetch_messages(&self, query: FetchQuery) -> Result<Vec<StoredMessage>>;
 
     async fn get_head(&self, topic: &Topic, origin: &NodeId) -> Result<Option<HeadId>>;
+
+    async fn list_heads(&self) -> Result<Vec<TopicHead>>;
+
+    async fn put_replicated_message(&self, message: StoredMessage) -> Result<ReplicateResult>;
 
     async fn tombstone_range(
         &self,
